@@ -1,33 +1,33 @@
 # Suriyos
 
-A 3D impact/drop physics simulator for macOS, built with [Dear ImGui](https://github.com/ocornut/imgui), GLFW, and [Bullet Physics](https://pybullet.org/wordpress/index.php/forum-2/). Supports English/Japanese UI and exports simulation results for analysis.
+[Dear ImGui](https://github.com/ocornut/imgui)、GLFW、[Bullet Physics](https://pybullet.org/wordpress/index.php/forum-2/) を使用した macOS 向け3D衝突・落下物理シミュレーター。日本語/英語UIに対応し、シミュレーション結果を分析用にエクスポートできます。
 
-## Requirements
+## 必要環境
 
-- macOS 11+ (Apple Silicon or Intel)
-- Xcode Command Line Tools (`xcode-select --install`)
+- macOS 11以降(Apple Silicon / Intel)
+- Xcode Command Line Tools(`xcode-select --install`)
 - [Homebrew](https://brew.sh)
 
-## Setup
+## セットアップ
 
 ```sh
 brew install glfw bullet
 git clone --depth 1 https://github.com/ocornut/imgui.git third_party/imgui
 ```
 
-## Build & run
+## ビルド・実行
 
 ```sh
-make        # build the Suriyos binary
-make run    # build and launch
-make app    # bundle into Suriyos.app (with icon)
+make        # Suriyos バイナリをビルド
+make run    # ビルドして起動
+make app    # アイコン付きの Suriyos.app にまとめる
 ```
 
-## Project layout
+## プロジェクト構成
 
 ```
 Suriyos/
-├── src/main.cpp        # application source
-├── Resources/           # Info.plist + app icon used by `make app`
+├── src/main.cpp        # アプリケーション本体のソースコード
+├── Resources/           # `make app` で使用する Info.plist とアイコン
 └── Makefile
 ```
