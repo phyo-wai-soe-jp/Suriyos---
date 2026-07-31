@@ -1,0 +1,14 @@
+# Build output
+/Suriyos
+/Suriyos.app
+*.o
+*.dSYM/
+
+# Vendored dependency (cloned locally, not committed)
+/third_party/
+
+# Runtime-generated window layout
+imgui.ini
+
+# macOS
+.DS_Store
