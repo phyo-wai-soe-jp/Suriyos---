@@ -3915,6 +3915,70 @@ int main() {
                 (float)-e->deltaX * scale, (float)-e->deltaY * scale);
             return EM_TRUE;
         });
+
+    // Touch support — there's no mouse/trackpad on a phone, so without this
+    // the app loads but is completely uninteractive there. One finger reuses
+    // the existing mouse callbacks directly (so gizmo drag / object pick /
+    // camera orbit / ImGui widgets all keep working exactly as they already
+    // do for a mouse); two fingers pinch-zoom, which has no mouse equivalent
+    // to reuse and needs its own tracking.
+    static double sPinchStartDist = 0.0;
+    static float  sPinchStartCameraDistance = 0.0;
+    static bool   sTouchDragging = false;
+
+    emscripten_set_touchstart_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true,
+        [](int, const EmscriptenTouchEvent* e, void*) -> EM_BOOL {
+            if (e->numTouches == 1) {
+                cursorCallback(gWindow, e->touches[0].targetX, e->touches[0].targetY);
+                mouseButtonCallback(gWindow, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, 0);
+                sTouchDragging = true;
+            } else if (e->numTouches == 2) {
+                if (sTouchDragging) {
+                    mouseButtonCallback(gWindow, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
+                    sTouchDragging = false;
+                }
+                double dx = e->touches[0].targetX - e->touches[1].targetX;
+                double dy = e->touches[0].targetY - e->touches[1].targetY;
+                sPinchStartDist = std::sqrt(dx * dx + dy * dy);
+                sPinchStartCameraDistance = cameraDistance;
+            }
+            return EM_TRUE;
+        });
+
+    emscripten_set_touchmove_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true,
+        [](int, const EmscriptenTouchEvent* e, void*) -> EM_BOOL {
+            if (e->numTouches == 1 && sTouchDragging) {
+                cursorCallback(gWindow, e->touches[0].targetX, e->touches[0].targetY);
+            } else if (e->numTouches == 2 && sPinchStartDist > 1.0) {
+                double dx = e->touches[0].targetX - e->touches[1].targetX;
+                double dy = e->touches[0].targetY - e->touches[1].targetY;
+                double dist = std::sqrt(dx * dx + dy * dy);
+                cameraDistance = std::clamp(
+                    sPinchStartCameraDistance * (float)(sPinchStartDist / dist), 3.0f, 2000.0f);
+            }
+            return EM_TRUE;
+        });
+
+    emscripten_set_touchend_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true,
+        [](int, const EmscriptenTouchEvent* e, void*) -> EM_BOOL {
+            if (e->numTouches == 0) {
+                if (sTouchDragging) {
+                    mouseButtonCallback(gWindow, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
+                    sTouchDragging = false;
+                }
+                sPinchStartDist = 0.0;
+            }
+            return EM_TRUE;
+        });
+    emscripten_set_touchcancel_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true,
+        [](int, const EmscriptenTouchEvent*, void*) -> EM_BOOL {
+            if (sTouchDragging) {
+                mouseButtonCallback(gWindow, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, 0);
+                sTouchDragging = false;
+            }
+            sPinchStartDist = 0.0;
+            return EM_TRUE;
+        });
 #else
     ImGui_ImplOpenGL3_Init("#version 410");
 #endif
