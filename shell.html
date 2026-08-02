@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Suriyos — Physics Simulator</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #07080f; height: 100%; overflow: hidden; }
+    #canvas { display: block; width: 100vw; height: 100vh; outline: none; touch-action: none; }
+    #loading {
+      position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 14px; color: #8991ac; font: 14px -apple-system, sans-serif;
+      background: #07080f; z-index: 10;
+    }
+    #loading.hidden { display: none; }
+    .spinner {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 3px solid rgba(139,108,242,0.25); border-top-color: #8b6cf2;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #progress { width: 200px; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+    #progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg,#5b8cff,#8b6cf2); transition: width 0.2s ease; }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <div class="spinner"></div>
+    <div id="loading-text">Loading Suriyos…</div>
+    <div id="progress"><div id="progress-bar"></div></div>
+  </div>
+  <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+  <script>
+    // Size the canvas's actual pixel buffer to match the display's real pixel
+    // density (Retina = 2x+), not just its CSS box size — otherwise the GPU
+    // renders at a lower resolution than the screen and the browser stretches
+    // it back up, which is what caused the blurriness. GLFW's Emscripten port
+    // picks up this size when the canvas already exists with it set, rather
+    // than the fixed 900x700 passed to glfwCreateWindow in the C++ code.
+    (function resizeCanvasForDPR() {
+      var canvas = document.getElementById('canvas');
+      var dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(window.innerWidth * dpr);
+      canvas.height = Math.round(window.innerHeight * dpr);
+    })();
+
+    var Module = {
+      canvas: document.getElementById('canvas'),
+      setStatus: function (text) {
+        var loadingText = document.getElementById('loading-text');
+        var loading = document.getElementById('loading');
+        if (!text) { loading.classList.add('hidden'); return; }
+        loadingText.textContent = text;
+      },
+      totalDependencies: 0,
+      monitorRunDependencies: function (left) {
+        this.totalDependencies = Math.max(this.totalDependencies, left);
+        var bar = document.getElementById('progress-bar');
+        var pct = this.totalDependencies
+          ? 100 - (left / this.totalDependencies) * 100
+          : 100;
+        bar.style.width = pct + '%';
+        this.setStatus(left ? 'Loading Suriyos… (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')' : 'Starting…');
+      },
+    };
+    window.onerror = function () {
+      Module.setStatus('An error occurred — check the browser console.');
+    };
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>

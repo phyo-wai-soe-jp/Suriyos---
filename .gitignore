@@ -1,6 +1,7 @@
 # Build output
 /Suriyos
 /Suriyos.app
+/web-build/
 *.o
 *.dSYM/
 

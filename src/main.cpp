@@ -19,7 +19,12 @@
 
 #define GL_SILENCE_DEPRECATION
 #define GLFW_INCLUDE_NONE
+#if defined(__EMSCRIPTEN__)
+#include <GLES3/gl3.h>
+#include <emscripten/html5.h>
+#else
 #include <OpenGL/gl3.h>
+#endif
 #include <GLFW/glfw3.h>
 
 #include "imgui.h"
@@ -43,7 +48,14 @@ constexpr float pi = 3.14159265358979323846f;
 
 // ── Language / Localisation ───────────────────────────────────────────────────
 enum class Lang { EN = 0, JA = 1 };
+#if defined(__EMSCRIPTEN__)
+// The web build doesn't bundle a CJK font (keeps the download small/fast),
+// so it defaults to English — the JP toggle still works, it'll just render
+// tofu boxes for kanji/kana without a Japanese-capable font loaded.
+static Lang gLang  = Lang::EN;
+#else
 static Lang gLang  = Lang::JA;   // default: Japanese
+#endif
 static int  gTheme = 0;          // 0=Midnight  1=Solar  2=Mint  3=Bloom  4=Rose  (macOS system accents)
 
 static inline const char* T(const char* en, const char* ja) {
@@ -677,9 +689,16 @@ GLuint compileShader(GLenum type, const char* source) {
 }
 
 void createShaderProgram() {
-    // Desktop OpenGL 4.1 core shaders.
-    const char* vertexShaderSource = R"(
-        #version 410 core
+    // Desktop OpenGL 4.1 core shaders (GLSL ES 3.00 / WebGL2 on the web build).
+#if defined(__EMSCRIPTEN__)
+    const char* glslVersionVert = "#version 300 es\n";
+    const char* glslVersionFrag = "#version 300 es\nprecision mediump float;\n";
+#else
+    const char* glslVersionVert = "#version 410 core\n";
+    const char* glslVersionFrag = "#version 410 core\n";
+#endif
+
+    std::string vertexShaderBody = R"(
         layout(location = 0) in vec3 aPosition;
         layout(location = 1) in vec3 aNormal;
         layout(location = 2) in vec4 aColor;
@@ -697,8 +716,7 @@ void createShaderProgram() {
         }
     )";
 
-    const char* fragmentShaderSource = R"(
-        #version 410 core
+    std::string fragmentShaderBody = R"(
         in vec3 vNormal;
         in vec3 vWorldPos;
         in vec4 vColor;
@@ -730,8 +748,10 @@ void createShaderProgram() {
         }
     )";
 
-    GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSource);
-    GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSource);
+    std::string vertexShaderSource = std::string(glslVersionVert) + vertexShaderBody;
+    std::string fragmentShaderSource = std::string(glslVersionFrag) + fragmentShaderBody;
+    GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSource.c_str());
+    GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSource.c_str());
     shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragmentShader);
@@ -2669,6 +2689,27 @@ static void DrawLibIcon(ImDrawList* dl, ImVec2 p, float sz, int shape, ImU32 fil
 }
 
 // ── Export helpers ─────────────────────────────────────────────────────────────
+#if defined(__EMSCRIPTEN__)
+#include <emscripten.h>
+// Files written via std::ofstream land in Emscripten's in-memory MEMFS, which
+// isn't visible to the visitor on its own — this reads it back out and hands
+// it to the browser as a real download, same UX as the native app writing to
+// disk directly.
+EM_JS(void, downloadFileJS, (const char* path, const char* mime), {
+    const p = UTF8ToString(path);
+    const data = FS.readFile(p);
+    const blob = new Blob([data], { type: UTF8ToString(mime) });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = p;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+});
+#endif
+
 static std::string makeTimestamp() {
     std::time_t t = std::time(nullptr);
     char buf[32];
@@ -2685,7 +2726,11 @@ static void exportTimeSeriesCSV() {
         f << fr.t << "," << fr.pos.x << "," << fr.pos.y << "," << fr.pos.z << ","
           << fr.vel.x << "," << fr.vel.y << "," << fr.vel.z << ","
           << fr.speed << "," << fr.ke << "," << fr.altitude << "\n";
+    f.close();
     std::printf("Exported %d frames → %s\n", (int)gTimeSeries.size(), path.c_str());
+#if defined(__EMSCRIPTEN__)
+    downloadFileJS(path.c_str(), "text/csv");
+#endif
 }
 
 static void exportExperimentJSON() {
@@ -2713,7 +2758,11 @@ static void exportExperimentJSON() {
     }
     f << "    \"timeseries_frames\": " << (int)gTimeSeries.size() << "\n";
     f << "  }\n}\n";
+    f.close();
     std::printf("Exported settings → %s\n", path.c_str());
+#if defined(__EMSCRIPTEN__)
+    downloadFileJS(path.c_str(), "application/json");
+#endif
 }
 
 // ── 5 macOS system accent themes — shared glass base, restrained tint ─────────
@@ -3768,7 +3817,12 @@ int main() {
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
     glEnable(GL_DEPTH_TEST);
+#if !defined(__EMSCRIPTEN__)
+    // WebGL2 has no runtime MSAA toggle — antialiasing is requested at
+    // context creation instead (via the GLFW_SAMPLES hint above, which
+    // GLFW's Emscripten port maps onto the canvas context's antialias flag).
     glEnable(GL_MULTISAMPLE);
+#endif
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -3783,13 +3837,29 @@ int main() {
 
     ImGuiIO& io = ImGui::GetIO();
 
-    // Load San Francisco (macOS native UI font) — crisp at any size
     const float baseSize = 15.0f;
     const float pixelSize = baseSize * dpiScale;
     ImFontConfig cfg;
     cfg.OversampleH = 3;
     cfg.OversampleV = 3;
     cfg.PixelSnapH  = false;
+
+#if defined(__EMSCRIPTEN__)
+    // Apple's system fonts can't legally be bundled into a public web build,
+    // and don't exist in Emscripten's virtual filesystem anyway. DejaVu Sans
+    // (Bitstream Vera license, redistribution explicitly permitted) is
+    // preloaded instead — a real vector TTF renders crisply at any size,
+    // unlike ImGui's tiny built-in bitmap font stretched up, which is both
+    // blurry and has different glyph widths than the UI was laid out for.
+    ImFont* fontMain = io.Fonts->AddFontFromFileTTF("/fonts/DejaVuSans.ttf", pixelSize, &cfg);
+    if (!fontMain) {
+        ImFontConfig fb; fb.SizePixels = pixelSize;
+        io.Fonts->AddFontDefault(&fb);
+    }
+    // No CJK glyphs in DejaVu Sans, and the web build defaults to English —
+    // skip the Japanese merge pass entirely rather than let it fail silently.
+#else
+    // Load San Francisco (macOS native UI font) — crisp at any size
     ImFont* fontSF = io.Fonts->AddFontFromFileTTF(
         "/System/Library/Fonts/SFNS.ttf", pixelSize, &cfg);
     if (!fontSF) {
@@ -3818,6 +3888,7 @@ int main() {
                 break;
         }
     }
+#endif
 
     io.FontGlobalScale = 1.0f / dpiScale;
 
@@ -3825,7 +3896,25 @@ int main() {
     setup3DStyle(dpiScale);
 
     ImGui_ImplGlfw_InitForOpenGL(window, false);
+#if defined(__EMSCRIPTEN__)
+    ImGui_ImplOpenGL3_Init("#version 300 es");
+    // GLFW's Emscripten port doesn't reliably normalize trackpad "smooth
+    // scroll" wheel events (DOM_DELTA_PIXEL), so two-finger scrolling either
+    // did nothing or barely moved anything through ImGui_ImplGlfw_ScrollCallback.
+    // Reading the browser wheel event directly and normalizing by its own
+    // deltaMode sidesteps that entirely.
+    emscripten_set_wheel_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true,
+        [](int, const EmscriptenWheelEvent* e, void*) -> EM_BOOL {
+            float scale = e->deltaMode == DOM_DELTA_PIXEL ? 0.01f
+                        : e->deltaMode == DOM_DELTA_LINE  ? 1.0f
+                                                           : 20.0f; // DOM_DELTA_PAGE
+            ImGui::GetIO().AddMouseWheelEvent(
+                (float)-e->deltaX * scale, (float)-e->deltaY * scale);
+            return EM_TRUE;
+        });
+#else
     ImGui_ImplOpenGL3_Init("#version 410");
+#endif
 
     createShaderProgram();
     createTerrainMesh();
@@ -3842,6 +3931,16 @@ int main() {
 
     previousTime = glfwGetTime();
 
+#if defined(__EMSCRIPTEN__)
+    // A blocking while-loop never returns control to the browser's own
+    // event loop, which freezes the tab ("Page Unresponsive") instead of
+    // rendering anything. emscripten_set_main_loop hands frame-by-frame
+    // control back via requestAnimationFrame instead — the standard way
+    // to port a native run-loop to the web. With simulate_infinite_loop=1
+    // this never returns, so the shutdown/cleanup below only runs in the
+    // native build (fine — the page just keeps looping until closed).
+    emscripten_set_main_loop(mainLoopIteration, 0, 1);
+#else
     while (!glfwWindowShouldClose(window)) {
         mainLoopIteration();
     }
@@ -3851,5 +3950,6 @@ int main() {
     ImGui::DestroyContext();
     glfwDestroyWindow(window);
     glfwTerminate();
+#endif
     return EXIT_SUCCESS;
 }
