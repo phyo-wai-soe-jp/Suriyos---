@@ -2518,6 +2518,28 @@ void framebufferSizeCallback(GLFWwindow*, int width, int height) {
     framebufferHeight = std::max(height, 1);
 }
 
+#if defined(__EMSCRIPTEN__)
+// GLFW's Emscripten port sets the canvas's actual pixel buffer to exactly
+// the width/height passed to glfwCreateWindow (900x700), ignoring both the
+// canvas's real CSS display size and the display's pixel density — any
+// earlier JS-side canvas sizing gets silently overwritten the moment the
+// window is created. This resizes the real framebuffer to CSS size ×
+// devicePixelRatio (verified via devtools: it was rendering at a flat
+// 900x700 and being upscaled by the browser to fill the page, which is
+// what caused the blur), and is re-run on every browser resize.
+void ResizeCanvasForDPI() {
+    double cssWidth = 0.0, cssHeight = 0.0;
+    emscripten_get_element_css_size("#canvas", &cssWidth, &cssHeight);
+    double dpr = emscripten_get_device_pixel_ratio();
+    int fbWidth  = std::max((int)std::round(cssWidth * dpr), 1);
+    int fbHeight = std::max((int)std::round(cssHeight * dpr), 1);
+    emscripten_set_canvas_element_size("#canvas", fbWidth, fbHeight);
+    framebufferWidth  = fbWidth;
+    framebufferHeight = fbHeight;
+    glViewport(0, 0, fbWidth, fbHeight);
+}
+#endif
+
 void printHelp() {
     std::printf("=== Physics Experiment ===\n");
     std::printf("  Left mouse drag : rotate camera\n");
@@ -3803,6 +3825,14 @@ int main() {
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
     glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+#if defined(__EMSCRIPTEN__)
+    ResizeCanvasForDPI();
+    emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true,
+        [](int, const EmscriptenUiEvent*, void*) -> EM_BOOL {
+            ResizeCanvasForDPI();
+            return EM_TRUE;
+        });
+#endif
     glfwSetKeyCallback(window, keyCallback);
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
     glfwSetCursorPosCallback(window, cursorCallback);
@@ -3823,10 +3853,20 @@ int main() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
 
-    // Query display content scale (2.0 on Retina, 1.0 on standard)
+    // Query display content scale (2.0 on Retina, 1.0 on standard).
+#if defined(__EMSCRIPTEN__)
+    // glfwGetWindowContentScale would report framebuffer-size ÷ GLFW's
+    // internal "window size" (still the literal 900x700 from
+    // glfwCreateWindow, since ResizeCanvasForDPI resizes the canvas
+    // directly rather than going through glfwSetWindowSize) — that ratio
+    // no longer means anything once the canvas has been resized out from
+    // under it, so read the real device pixel ratio directly instead.
+    float dpiScale = (float)emscripten_get_device_pixel_ratio();
+#else
     float dpiX = 1.0f, dpiY = 1.0f;
     glfwGetWindowContentScale(window, &dpiX, &dpiY);
     float dpiScale = dpiX;
+#endif
 
     ImGuiIO& io = ImGui::GetIO();
 
