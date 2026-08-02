@@ -48,14 +48,7 @@ constexpr float pi = 3.14159265358979323846f;
 
 // ── Language / Localisation ───────────────────────────────────────────────────
 enum class Lang { EN = 0, JA = 1 };
-#if defined(__EMSCRIPTEN__)
-// The web build doesn't bundle a CJK font (keeps the download small/fast),
-// so it defaults to English — the JP toggle still works, it'll just render
-// tofu boxes for kanji/kana without a Japanese-capable font loaded.
-static Lang gLang  = Lang::EN;
-#else
 static Lang gLang  = Lang::JA;   // default: Japanese
-#endif
 static int  gTheme = 0;          // 0=Midnight  1=Solar  2=Mint  3=Bloom  4=Rose  (macOS system accents)
 
 static inline const char* T(const char* en, const char* ja) {
@@ -3856,8 +3849,18 @@ int main() {
         ImFontConfig fb; fb.SizePixels = pixelSize;
         io.Fonts->AddFontDefault(&fb);
     }
-    // No CJK glyphs in DejaVu Sans, and the web build defaults to English —
-    // skip the Japanese merge pass entirely rather than let it fail silently.
+
+    // Merge Japanese glyphs from Noto Sans JP (SIL OFL — Google's own font,
+    // explicitly released for exactly this kind of embedding). DejaVu Sans
+    // has no CJK coverage on its own.
+    {
+        ImFontConfig cfgJP;
+        cfgJP.MergeMode   = true;
+        cfgJP.OversampleH = 2;
+        cfgJP.OversampleV = 2;
+        const ImWchar* jpRanges = io.Fonts->GetGlyphRangesJapanese();
+        io.Fonts->AddFontFromFileTTF("/fonts/NotoSansJP-Regular.otf", pixelSize, &cfgJP, jpRanges);
+    }
 #else
     // Load San Francisco (macOS native UI font) — crisp at any size
     ImFont* fontSF = io.Fonts->AddFontFromFileTTF(

@@ -27,7 +27,8 @@ emcc -std=c++17 -O2 -DNDEBUG \
   -s WASM=1 \
   -s EXPORTED_RUNTIME_METHODS='["FS"]' \
   --preload-file web-assets/DejaVuSans.ttf@/fonts/DejaVuSans.ttf \
+  --preload-file web-assets/NotoSansJP-Regular.otf@/fonts/NotoSansJP-Regular.otf \
   --shell-file shell.html \
   -o "$OUT/index.html"
 
-echo "Built $OUT/suriyos.html"
+echo "Built $OUT/index.html"
