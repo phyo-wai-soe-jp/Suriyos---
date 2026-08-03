@@ -2634,8 +2634,8 @@ static void setup3DStyle(float dpiScale) {
     s.ItemSpacing       = ImVec2(12.0f, 10.0f);
     s.ItemInnerSpacing  = ImVec2( 8.0f,  6.0f);
     s.IndentSpacing     = 22.0f;
-    s.ScrollbarSize     =  6.0f;
-    s.GrabMinSize       = 12.0f;
+    s.ScrollbarSize     =  8.0f;
+    s.GrabMinSize       = 14.0f;
     s.WindowMinSize     = ImVec2(80.0f, 40.0f);
     s.WindowTitleAlign  = ImVec2(0.5f, 0.5f);
     s.ButtonTextAlign   = ImVec2(0.5f, 0.5f);
@@ -2656,7 +2656,7 @@ static void setup3DStyle(float dpiScale) {
 
     c[ImGuiCol_FrameBg]               = ImVec4(1.00f, 1.00f, 1.00f, 0.07f);
     c[ImGuiCol_FrameBgHovered]        = ImVec4(1.00f, 1.00f, 1.00f, 0.12f);
-    c[ImGuiCol_FrameBgActive]         = ImVec4(1.00f, 1.00f, 1.00f, 0.06f);
+    c[ImGuiCol_FrameBgActive]         = ImVec4(0.00f, 0.48f, 1.00f, 0.16f);
 
     c[ImGuiCol_TitleBg]               = ImVec4(0.06f, 0.07f, 0.11f, 0.00f);
     c[ImGuiCol_TitleBgActive]         = ImVec4(0.00f, 0.48f, 1.00f, 0.82f);
@@ -2851,27 +2851,27 @@ struct ThC {
 static const ThC kThC[5] = {
   // 0 Midnight — system blue
   {{.07f,.08f,.12f,.84f},{.00f,.48f,1.0f,.82f},{1,1,1,.07f},{1,1,1,.12f},
-   {1,1,1,.88f},{.00f,.48f,1,1},{1,1,1,.10f},{1,1,1,.18f},
+   {.40f,.75f,1.00f,.92f},{.00f,.48f,1,1},{1,1,1,.10f},{1,1,1,.18f},
    {.00f,.48f,1,.86f},{.00f,.48f,1,.18f},{.00f,.48f,1,.30f},
    {1,1,1,.04f},{.00f,.48f,1,.80f},{1,1,1,.12f},{1,1,1,.12f}},
   // 1 Solar — system orange
   {{.07f,.08f,.12f,.84f},{1.0f,.58f,.00f,.82f},{1,1,1,.07f},{1,1,1,.12f},
-   {1,1,1,.88f},{1,.58f,.00f,1},{1,1,1,.10f},{1,1,1,.18f},
+   {1.00f,.65f,.35f,.92f},{1,.58f,.00f,1},{1,1,1,.10f},{1,1,1,.18f},
    {1,.58f,.00f,.86f},{1,.58f,.00f,.18f},{1,.58f,.00f,.30f},
    {1,1,1,.04f},{1,.58f,.00f,.80f},{1,1,1,.12f},{1,1,1,.12f}},
   // 2 Mint — system teal
   {{.07f,.08f,.12f,.84f},{.00f,.78f,.74f,.82f},{1,1,1,.07f},{1,1,1,.12f},
-   {1,1,1,.88f},{.00f,.78f,.74f,1},{1,1,1,.10f},{1,1,1,.18f},
+   {.45f,.95f,.86f,.92f},{.00f,.78f,.74f,1},{1,1,1,.10f},{1,1,1,.18f},
    {.00f,.78f,.74f,.86f},{.00f,.78f,.74f,.18f},{.00f,.78f,.74f,.30f},
    {1,1,1,.04f},{.00f,.78f,.74f,.80f},{1,1,1,.12f},{1,1,1,.12f}},
   // 3 Bloom — system purple
   {{.07f,.08f,.12f,.84f},{.68f,.32f,.87f,.82f},{1,1,1,.07f},{1,1,1,.12f},
-   {1,1,1,.88f},{.68f,.32f,.87f,1},{1,1,1,.10f},{1,1,1,.18f},
+   {.78f,.52f,1.00f,.92f},{.68f,.32f,.87f,1},{1,1,1,.10f},{1,1,1,.18f},
    {.68f,.32f,.87f,.86f},{.68f,.32f,.87f,.18f},{.68f,.32f,.87f,.30f},
    {1,1,1,.04f},{.68f,.32f,.87f,.80f},{1,1,1,.12f},{1,1,1,.12f}},
   // 4 Rose — system pink
   {{.07f,.08f,.12f,.84f},{1.0f,.18f,.33f,.82f},{1,1,1,.07f},{1,1,1,.12f},
-   {1,1,1,.88f},{1,.18f,.33f,1},{1,1,1,.10f},{1,1,1,.18f},
+   {1.00f,.45f,.75f,.92f},{1,.18f,.33f,1},{1,1,1,.10f},{1,1,1,.18f},
    {1,.18f,.33f,.86f},{1,.18f,.33f,.18f},{1,.18f,.33f,.30f},
    {1,1,1,.04f},{1,.18f,.33f,.80f},{1,1,1,.12f},{1,1,1,.12f}},
 };
@@ -2951,6 +2951,207 @@ static bool ButtonT(const char* en, const char* ja, ImVec2 size_arg = ImVec2(0, 
     };
     ImGui::GetWindowDrawList()->AddText(textPos, ImGui::GetColorU32(ImGuiCol_Text), visible);
     return clicked;
+}
+
+enum class ActionTone { Neutral, Primary, Success, Warning, Danger };
+
+static bool ActionButtonT(const char* en, const char* ja,
+                          ActionTone tone = ActionTone::Neutral,
+                          ImVec2 size_arg = ImVec2(0, 0)) {
+    ImVec4 base, hover, active;
+    switch (tone) {
+        case ActionTone::Primary:
+            base = alphaOf(themeAccent(), 0.78f);
+            hover = alphaOf(themeAccent(), 0.92f);
+            active = alphaOf(themeAccent(), 1.00f);
+            break;
+        case ActionTone::Success:
+            base = ImVec4(0.20f, 0.62f, 0.38f, 0.86f);
+            hover = ImVec4(0.27f, 0.72f, 0.46f, 0.96f);
+            active = ImVec4(0.16f, 0.52f, 0.31f, 1.00f);
+            break;
+        case ActionTone::Warning:
+            base = ImVec4(0.82f, 0.52f, 0.18f, 0.86f);
+            hover = ImVec4(0.94f, 0.63f, 0.25f, 0.96f);
+            active = ImVec4(0.72f, 0.42f, 0.12f, 1.00f);
+            break;
+        case ActionTone::Danger:
+            base = ImVec4(0.76f, 0.25f, 0.27f, 0.86f);
+            hover = ImVec4(0.90f, 0.33f, 0.36f, 0.96f);
+            active = ImVec4(0.66f, 0.18f, 0.20f, 1.00f);
+            break;
+        case ActionTone::Neutral:
+        default:
+            base = ImVec4(1.00f, 1.00f, 1.00f, 0.10f);
+            hover = ImVec4(1.00f, 1.00f, 1.00f, 0.18f);
+            active = alphaOf(themeAccent(), 0.72f);
+            break;
+    }
+    ImGui::PushStyleColor(ImGuiCol_Button, base);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hover);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, active);
+    bool clicked = ButtonT(en, ja, size_arg);
+    ImGui::PopStyleColor(3);
+    return clicked;
+}
+
+static void ControlLabel(const char* label, const char* hint = nullptr) {
+    ImGui::TextColored(ImVec4(0.78f, 0.82f, 0.90f, 1.00f), "%s", label);
+    if (hint && hint[0]) {
+        ImGui::SameLine();
+        ImGui::TextDisabled("%s", hint);
+    }
+}
+
+static bool BeginControlSectionT(const char* en, const char* ja, ImGuiTreeNodeFlags flags = 0) {
+    ImVec4 accent = themeAccent();
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.0f, 11.0f));
+    ImGui::PushStyleColor(ImGuiCol_Header, alphaOf(accent, 0.20f));
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, alphaOf(accent, 0.30f));
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, alphaOf(accent, 0.40f));
+    bool open = ImGui::CollapsingHeader(T(en, ja), flags);
+    ImGui::PopStyleColor(3);
+    ImGui::PopStyleVar();
+    if (open) ImGui::Spacing();
+    return open;
+}
+
+static bool ControlComboT(const char* en, const char* ja, const char* id,
+                          int* value, const char* const items[], int count,
+                          const char* hintEn = nullptr, const char* hintJa = nullptr) {
+    ControlLabel(T(en, ja), hintEn ? T(hintEn, hintJa) : nullptr);
+    ImGui::PushID(id);
+    ImGui::SetNextItemWidth(-1);
+    bool changed = ImGui::Combo("##combo", value, items, count);
+    ImGui::PopID();
+    ImGui::Spacing();
+    return changed;
+}
+
+static bool ControlSliderFloatT(const char* en, const char* ja, const char* id,
+                                float* value, float minValue, float maxValue,
+                                const char* format, ImGuiSliderFlags flags = 0,
+                                bool showReset = false, float resetValue = 0.0f) {
+    char valueText[64];
+    std::snprintf(valueText, sizeof(valueText), format, *value);
+    ControlLabel(T(en, ja), valueText);
+    bool changed = false;
+    ImGui::PushID(id);
+    if (showReset) {
+        float resetW = 72.0f;
+        float sliderW = std::max(96.0f, ImGui::GetContentRegionAvail().x - resetW - 8.0f);
+        ImGui::SetNextItemWidth(sliderW);
+        changed |= ImGui::SliderFloat("##slider", value, minValue, maxValue, "", flags);
+        ImGui::SameLine(0.0f, 8.0f);
+        if (ActionButtonT("Reset", "リセット", ActionTone::Neutral, ImVec2(resetW, 0))) {
+            *value = resetValue;
+            changed = true;
+        }
+    } else {
+        ImGui::SetNextItemWidth(-1);
+        changed |= ImGui::SliderFloat("##slider", value, minValue, maxValue, "", flags);
+    }
+    ImGui::PopID();
+    ImGui::Spacing();
+    return changed;
+}
+
+static bool AxisSlider3T(const char* en, const char* ja, const char* id,
+                         float* x, float* y, float* z,
+                         float minValue, float maxValue, const char* format,
+                         bool showReset = false, float resetValue = 1.0f) {
+    ControlLabel(T(en, ja));
+    bool changed = false;
+    ImGui::PushID(id);
+    float avail = ImGui::GetContentRegionAvail().x;
+    float gap = 6.0f;
+    float colW = (avail - gap * 2.0f) / 3.0f;
+    auto drawAxis = [&](const char* axis, ImVec4 color, float* value, const char* sliderId) {
+        char valueText[48];
+        std::snprintf(valueText, sizeof(valueText), format, *value);
+        ImGui::BeginGroup();
+        ImGui::TextColored(color, "%s", axis);
+        ImGui::SameLine();
+        ImGui::TextDisabled("%s", valueText);
+        ImGui::SetNextItemWidth(colW);
+        changed |= ImGui::SliderFloat(sliderId, value, minValue, maxValue, "");
+        ImGui::EndGroup();
+    };
+
+    if (colW >= 76.0f) {
+        drawAxis("X", ImVec4(0.95f, 0.36f, 0.34f, 1.00f), x, "##x");
+        ImGui::SameLine(0.0f, gap);
+        drawAxis("Y", ImVec4(0.42f, 0.95f, 0.38f, 1.00f), y, "##y");
+        ImGui::SameLine(0.0f, gap);
+        drawAxis("Z", ImVec4(0.36f, 0.54f, 1.00f, 1.00f), z, "##z");
+    } else {
+        char xVal[48], yVal[48], zVal[48], xText[64], yText[64], zText[64];
+        std::snprintf(xVal, sizeof(xVal), format, *x);
+        std::snprintf(yVal, sizeof(yVal), format, *y);
+        std::snprintf(zVal, sizeof(zVal), format, *z);
+        std::snprintf(xText, sizeof(xText), "X  %s", xVal);
+        std::snprintf(yText, sizeof(yText), "Y  %s", yVal);
+        std::snprintf(zText, sizeof(zText), "Z  %s", zVal);
+        ControlLabel(xText); ImGui::SetNextItemWidth(-1); changed |= ImGui::SliderFloat("##x", x, minValue, maxValue, "");
+        ControlLabel(yText); ImGui::SetNextItemWidth(-1); changed |= ImGui::SliderFloat("##y", y, minValue, maxValue, "");
+        ControlLabel(zText); ImGui::SetNextItemWidth(-1); changed |= ImGui::SliderFloat("##z", z, minValue, maxValue, "");
+    }
+
+    if (showReset) {
+        ImGui::Spacing();
+        if (ActionButtonT("Reset axes", "軸リセット", ActionTone::Neutral, ImVec2(-1, 0))) {
+            *x = resetValue; *y = resetValue; *z = resetValue;
+            changed = true;
+        }
+    }
+    ImGui::PopID();
+    ImGui::Spacing();
+    return changed;
+}
+
+static bool AxisInput3T(const char* en, const char* ja, const char* id,
+                        Vec3* value, const char* format = "%.2f",
+                        bool showReset = false, Vec3 resetValue = {0,0,0}) {
+    ControlLabel(T(en, ja));
+    bool changed = false;
+    ImGui::PushID(id);
+    float avail = ImGui::GetContentRegionAvail().x;
+    float gap = 6.0f;
+    float colW = (avail - gap * 2.0f) / 3.0f;
+    auto drawAxis = [&](const char* axis, ImVec4 color, float* field, const char* inputId) {
+        ImGui::BeginGroup();
+        ImGui::TextColored(color, "%s", axis);
+        ImGui::SetNextItemWidth(colW);
+        changed |= ImGui::InputFloat(inputId, field, 0, 0, format);
+        ImGui::EndGroup();
+    };
+    if (colW >= 76.0f) {
+        drawAxis("X", ImVec4(0.95f, 0.36f, 0.34f, 1.00f), &value->x, "##x");
+        ImGui::SameLine(0.0f, gap);
+        drawAxis("Y", ImVec4(0.42f, 0.95f, 0.38f, 1.00f), &value->y, "##y");
+        ImGui::SameLine(0.0f, gap);
+        drawAxis("Z", ImVec4(0.36f, 0.54f, 1.00f, 1.00f), &value->z, "##z");
+    } else {
+        ImGui::SetNextItemWidth(-1); changed |= ImGui::InputFloat("X##x", &value->x, 0, 0, format);
+        ImGui::SetNextItemWidth(-1); changed |= ImGui::InputFloat("Y##y", &value->y, 0, 0, format);
+        ImGui::SetNextItemWidth(-1); changed |= ImGui::InputFloat("Z##z", &value->z, 0, 0, format);
+    }
+    if (showReset) {
+        ImGui::Spacing();
+        if (ActionButtonT("Zero", "ゼロ", ActionTone::Neutral, ImVec2(-1, 0))) {
+            *value = resetValue;
+            changed = true;
+        }
+    }
+    ImGui::PopID();
+    ImGui::Spacing();
+    return changed;
+}
+
+static void MetricLine(const char* label, const char* value, ImVec4 color = ImVec4(0.68f,0.82f,0.98f,1.f)) {
+    ImGui::TextDisabled("%s", label);
+    ImGui::SameLine();
+    ImGui::TextColored(color, "%s", value);
 }
 
 static bool macSegmentButton(const char* label, bool selected, ImVec2 size) {
@@ -3456,55 +3657,56 @@ void renderHUD() {
     ImGui::BeginChild("##envscroll", ImVec2(0, ImGui::GetContentRegionAvail().y), ImGuiChildFlags_None);
 
     // ── Ground ───────────────────────────────────────────────────────────────
-    if (ImGui::CollapsingHeader(T("Ground", "地面"), ImGuiTreeNodeFlags_DefaultOpen)) {
-
-    ImGui::Text("%s", T("Shape", "形状"));
+    if (BeginControlSectionT("Ground", "地面", ImGuiTreeNodeFlags_DefaultOpen)) {
     const char* groundNames[] = {
         T("Flat Plane",    "平坦面"),
         T("Bumpy Math",    "凹凸数学面"),
         T("Rolling Hills", "丘陵地形"),
         T("Bowl",          "凹形曲面"),
     };
-    if (ImGui::Combo("##gshape", &groundType, groundNames, 4)) {
+    if (ControlComboT("Shape", "形状", "gshape", &groundType, groundNames, 4)) {
         createTerrainMesh(); createGridMesh();
         buildBulletWorld();
         resetBall();
     }
 
-    ImGui::Text("%s", T("Surface", "表面材質"));
     constexpr int nGnd = sizeof(kGroundMaterials)/sizeof(kGroundMaterials[0]);
     const char* gndNames[nGnd];
     for (int i=0;i<nGnd;i++)
         gndNames[i] = (gLang == Lang::JA) ? kGroundMatNamesJA[i] : kGroundMaterials[i].name;
-    if (ImGui::Combo("##gmat", &groundMaterialIdx, gndNames, nGnd)) {
+    if (ControlComboT("Surface", "表面材質", "gmat", &groundMaterialIdx, gndNames, nGnd)) {
         buildBulletWorld();
         resetBall();
     }
+    const GroundMaterial& gmat = kGroundMaterials[groundMaterialIdx];
+    char groundInfo[96];
+    std::snprintf(groundInfo, sizeof(groundInfo), "E %.2g GPa  mu %.2f  e %.2f",
+                  gmat.E_GPa, gmat.mu_fric, gmat.e_rest);
+    MetricLine(T("Material", "材質"), groundInfo, ImVec4(0.72f,0.86f,1.00f,1.f));
     } // CollapsingHeader Ground
 
     // ── Environment ──────────────────────────────────────────────────────────
-    if (ImGui::CollapsingHeader(T("Environment & Forces", "環境と力"), ImGuiTreeNodeFlags_DefaultOpen)) {
-
-    ImGui::Text("%s", T("Gravity", "重力加速度"));
+    if (BeginControlSectionT("Environment & Forces", "環境と力", ImGuiTreeNodeFlags_DefaultOpen)) {
     constexpr int nGrav = sizeof(kGravities)/sizeof(kGravities[0]);
     const char* gravNames[nGrav];
     for (int i=0;i<nGrav;i++)
         gravNames[i] = (gLang == Lang::JA) ? kGravNamesJA[i] : kGravities[i].name;
-    if (ImGui::Combo("##grav", &gravityEnvIdx, gravNames, nGrav)) {
+    if (ControlComboT("Gravity", "重力加速度", "grav", &gravityEnvIdx, gravNames, nGrav)) {
         if (gBtWorld)
             gBtWorld->setGravity(btVector3(0,-kGravities[gravityEnvIdx].g,0));
     }
-    ImGui::TextColored(ImVec4(0.58f,0.72f,0.88f,1.f), "  g = %.2f m/s²",
-                       kGravities[gravityEnvIdx].g);
+    char gravityInfo[64];
+    std::snprintf(gravityInfo, sizeof(gravityInfo), "g = %.2f m/s^2", kGravities[gravityEnvIdx].g);
+    MetricLine(T("Gravity", "重力"), gravityInfo, ImVec4(0.72f,0.86f,1.00f,1.f));
 
-    ImGui::Text("%s", T("Atmosphere", "大気"));
     constexpr int nAtm = sizeof(kAtmospheres)/sizeof(kAtmospheres[0]);
     const char* atmNames[nAtm];
     for (int i=0;i<nAtm;i++)
         atmNames[i] = (gLang == Lang::JA) ? kAtmNamesJA[i] : kAtmospheres[i].name;
-    if (ImGui::Combo("##atm", &atmosphereIdx, atmNames, nAtm)) { /* drag recalculated each frame */ }
-    ImGui::TextColored(ImVec4(0.58f,0.72f,0.88f,1.f),
-        T("  rho=%.3f kg/m³", "  ρ=%.3f kg/m³"), kAtmospheres[atmosphereIdx].rho);
+    if (ControlComboT("Atmosphere", "大気", "atm", &atmosphereIdx, atmNames, nAtm)) { /* drag recalculated each frame */ }
+    char atmInfo[72];
+    std::snprintf(atmInfo, sizeof(atmInfo), "rho %.3f kg/m^3", kAtmospheres[atmosphereIdx].rho);
+    MetricLine(T("Density", "密度"), atmInfo, ImVec4(0.72f,0.86f,1.00f,1.f));
 
     } // CollapsingHeader Environment & Forces
 
@@ -3512,27 +3714,18 @@ void renderHUD() {
     ImGui::Spacing();
     {
         float bw = (ImGui::GetContentRegionAvail().x - 8) / 3.0f;
-        constexpr float SBH = 32.f;
+        constexpr float SBH = 36.f;
         if (gSimPaused) {
-            ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.22f,0.62f,0.38f,0.82f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.28f,0.70f,0.44f,0.92f));
-            if (ButtonT("Play [P]", "再生[P]", ImVec2(bw, SBH))) gSimPaused = false;
-            ImGui::PopStyleColor(2);
+            if (ActionButtonT("Play [P]", "再生[P]", ActionTone::Success, ImVec2(bw, SBH))) gSimPaused = false;
         } else {
-            ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.82f,0.52f,0.18f,0.82f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.92f,0.60f,0.24f,0.92f));
-            if (ButtonT("Pause [P]", "停止[P]", ImVec2(bw, SBH))) gSimPaused = true;
-            ImGui::PopStyleColor(2);
+            if (ActionButtonT("Pause [P]", "停止[P]", ActionTone::Warning, ImVec2(bw, SBH))) gSimPaused = true;
         }
         ImGui::SameLine(0, 4);
         ImGui::BeginDisabled(!gSimPaused);
-        if (ButtonT("Step [.]", "ステップ[.]", ImVec2(bw, SBH))) gSimStep = true;
+        if (ActionButtonT("Step [.]", "ステップ[.]", ActionTone::Primary, ImVec2(bw, SBH))) gSimStep = true;
         ImGui::EndDisabled();
         ImGui::SameLine(0, 4);
-        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.76f,0.26f,0.30f,0.82f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.90f,0.34f,0.38f,0.94f));
-        if (ButtonT("Reset", "リセット", ImVec2(bw, SBH))) { resetBall(); gSimPaused = false; }
-        ImGui::PopStyleColor(2);
+        if (ActionButtonT("Reset", "リセット", ActionTone::Danger, ImVec2(bw, SBH))) { resetBall(); gSimPaused = false; }
         if (gSimPaused)
             ImGui::TextColored(ImVec4(0.95f,0.67f,0.24f,1.f), "%s",
                 T("  PAUSED — press P or Step [.]", "  一時停止中 — P またはステップ [.]"));
@@ -3540,17 +3733,17 @@ void renderHUD() {
     ImGui::Spacing();
 
     // ── View Controls ────────────────────────────────────────────────────────
-    if (ImGui::CollapsingHeader(T("View & Scene", "表示とシーン"), ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (BeginControlSectionT("View & Scene", "表示とシーン", ImGuiTreeNodeFlags_DefaultOpen)) {
         float bwH = (ImGui::GetContentRegionAvail().x - 4) * 0.5f;
         char colorLabel[64];
         std::snprintf(colorLabel, sizeof(colorLabel),
             T("Grid: %s [C]", "色:%s[C]"), gridColors[currentColor].name);
-        if (ImGui::Button(colorLabel, ImVec2(bwH, 0))) {
+        if (ActionButtonT(colorLabel, colorLabel, ActionTone::Neutral, ImVec2(bwH, 34.f))) {
             currentColor = (currentColor + 1) % numColors;
             createGridMesh();
         }
         ImGui::SameLine(0, 4);
-        if (ButtonT("Reset Camera [R]", "カメラ[R]", ImVec2(bwH, 0)))
+        if (ActionButtonT("Reset Camera [R]", "カメラ[R]", ActionTone::Neutral, ImVec2(bwH, 34.f)))
             yaw=35.f, pitch=25.f, cameraDistance=55.f;
         ImGui::Checkbox(T("Auto Rotate [Space]", "自動回転 [Space]"), &autoRotate);
         ImGui::TextDisabled(T("  Grid: %d   FPS: %.0f", "  グリッド: %d   FPS: %.0f"),
@@ -3628,11 +3821,13 @@ void renderHUD() {
     // ── Category sidebar + card grid ──────────────────────────────────────────
     // Wide enough for the longest category label ("Primitives"/"Cylinders")
     // without truncating - 96px clipped them mid-word.
-    ImGui::BeginChild("##libcats", ImVec2(120,288), true);
+    ImGui::BeginChild("##libcats", ImVec2(118,300), true);
+    ImGui::TextDisabled("%s", T("BROWSE", "一覧"));
+    ImGui::Spacing();
     for (int ci=0; ci<kNumLibCats; ++ci) {
         bool sel = (gLibCatFilter==ci);
         if (sel) ImGui::PushStyleColor(ImGuiCol_Header, alphaOf(themeAccent(), 0.32f));
-        if (ImGui::Selectable((gLang==Lang::JA)?kLibCategoriesJA[ci]:kLibCategories[ci], sel, 0, ImVec2(0,22)))
+        if (ImGui::Selectable((gLang==Lang::JA)?kLibCategoriesJA[ci]:kLibCategories[ci], sel, 0, ImVec2(0,30)))
             { gLibCatFilter=ci; gLibSelected=-1; gLibVariantSel=0; }
         if (sel) ImGui::PopStyleColor();
     }
@@ -3641,9 +3836,9 @@ void renderHUD() {
     ImGui::SameLine();
 
     // card grid
-    ImGui::BeginChild("##libgrid", ImVec2(0,288), true);
+    ImGui::BeginChild("##libgrid", ImVec2(0,300), true);
     ImDrawList* libDl = ImGui::GetWindowDrawList();
-    constexpr float cardSz = 86.f;
+    constexpr float cardSz = 92.f;
     constexpr float cardPad = 8.f;
     int col=0; float startX = ImGui::GetCursorScreenPos().x;
     int availW = (int)ImGui::GetContentRegionAvail().x;
@@ -3722,7 +3917,7 @@ void renderHUD() {
         ImGui::Separator();
         ImGui::TextColored(themeAccent(), "%s", (gLang==Lang::JA)?kLibEntryNamesJA[gLibSelected]:e.name);
         ImGui::SameLine(); ImGui::TextDisabled("  %s", e.desc);
-        ImGui::Text("%s", T("Variants:", "バリアント:"));
+        ControlLabel(T("Variants", "バリアント"));
         ImDrawList* vdl = ImGui::GetWindowDrawList();
         constexpr float vcSz=62.f;
         for (int vi=0; vi<e.nVariants; ++vi) {
@@ -3778,29 +3973,27 @@ void renderHUD() {
         ImGui::Separator();
 
         // Scale fine-tune
-        ImGui::TextDisabled("%s", T("SCALE OVERRIDE", "スケール調整"));
-        ImGui::SetNextItemWidth(90); ImGui::SliderFloat("X##lsx",&gLibSx,0.1f,5.f,"%.2f"); ImGui::SameLine();
-        ImGui::SetNextItemWidth(90); ImGui::SliderFloat("Y##lsy",&gLibSy,0.1f,5.f,"%.2f"); ImGui::SameLine();
-        ImGui::SetNextItemWidth(90); ImGui::SliderFloat("Z##lsz",&gLibSz,0.1f,5.f,"%.2f");
+        AxisSlider3T("Scale override", "スケール調整", "libscale",
+                     &gLibSx, &gLibSy, &gLibSz, 0.1f, 5.f, "%.2f",
+                     true, 1.0f);
 
         // Material + size
-        ImGui::TextDisabled("%s", T("MATERIAL / SIZE", "材質 / サイズ"));
-        ImGui::SetNextItemWidth(170);
         {constexpr int nM=sizeof(kObjectMaterials)/sizeof(kObjectMaterials[0]);
          const char* mn[nM]; for(int i=0;i<nM;i++) mn[i]=(gLang==Lang::JA)?kObjMatNamesJA[i]:kObjectMaterials[i].name;
-         ImGui::Combo("##libmat2",&gLibMat,mn,nM);}
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(-1);
-        ImGui::SliderFloat("##libsz2",&gLibSize,0.1f,3.0f,"r=%.2fm");
+         ControlComboT("Material", "材質", "libmat2", &gLibMat, mn, nM);}
+        ControlSliderFloatT("Base radius", "基本半径", "libsz2",
+                            &gLibSize, 0.1f, 3.0f, "r = %.2f m",
+                            0, true, 0.5f);
 
         // Effective size display
         const ObjectMaterial& lom = kObjectMaterials[gLibMat];
-        ImGui::TextColored(ImVec4(0.7f,0.9f,0.7f,1.f),
-            "  %.2f × %.2f × %.2f m   mass≈%.1f kg",
+        char libDims[128];
+        std::snprintf(libDims, sizeof(libDims), "%.2f x %.2f x %.2f m   mass ~= %.1f kg",
             2*gLibSize*gLibSx, 2*gLibSize*gLibSy, 2*gLibSize*gLibSz,
             lom.rho * shapeVolume(gLibShape, gLibSize, gLibSx, gLibSy, gLibSz));
+        MetricLine(T("Preview", "プレビュー"), libDims, ImVec4(0.70f,0.92f,0.72f,1.f));
 
-        if (ButtonT("+ Add to Scene", "+ シーンに追加", ImVec2(-1,0))) {
+        if (ActionButtonT("+ Add to Scene", "+ シーンに追加", ActionTone::Success, ImVec2(-1,38.f))) {
             addSceneObject(gLibShape, gLibMat, gLibSize, gLibSx, gLibSy, gLibSz);
             pauseForSceneEditing();
         }
@@ -3815,7 +4008,7 @@ void renderHUD() {
     for (int i=0;i<(int)gSceneObjects.size();++i) {
         bool sel=(i==gSelectedObjIdx);
         if (sel) ImGui::PushStyleColor(ImGuiCol_Header, alphaOf(themeAccent(), 0.32f));
-        if (ImGui::Selectable(gSceneObjects[i].label, sel)) {
+        if (ImGui::Selectable(gSceneObjects[i].label, sel, 0, ImVec2(0,30))) {
             gSelectedObjIdx=i;
             pauseForSceneEditing();
         }
@@ -3829,7 +4022,7 @@ void renderHUD() {
         }
     }
     if (gSelectedObjIdx>=0 && gSelectedObjIdx<(int)gSceneObjects.size()) {
-        if (ButtonT("Delete Selected", "選択を削除", ImVec2(-1,0)))
+        if (ActionButtonT("Delete Selected", "選択を削除", ActionTone::Danger, ImVec2(-1,34.f)))
             removeSceneObject(gSelectedObjIdx);
     }
     ImGui::EndChild();
@@ -3845,52 +4038,44 @@ void renderHUD() {
         if (ImGui::BeginTabItem(T("Create", "作成"))) {
             ImGui::BeginChild("##crscroll", ImVec2(0, ImGui::GetContentRegionAvail().y), ImGuiChildFlags_None);
             ImGui::TextDisabled("%s", T("BUILD FROM SCRATCH", "ゼロから構築"));
-            ImGui::Text("%s", T("Base Shape", "基本形状"));
-            ImGui::SetNextItemWidth(-1);
-            ImGui::Combo("##wsshape",&gWsShape,getSceneShapeNamesL(),kNumSceneShapes);
-            ImGui::Text("%s", T("Material", "材質"));
-            ImGui::SetNextItemWidth(-1);
+            ControlComboT("Base shape", "基本形状", "wsshape",
+                          &gWsShape, getSceneShapeNamesL(), kNumSceneShapes);
             {constexpr int nM=sizeof(kObjectMaterials)/sizeof(kObjectMaterials[0]);
              const char* mn[nM]; for(int i=0;i<nM;i++) mn[i]=(gLang==Lang::JA)?kObjMatNamesJA[i]:kObjectMaterials[i].name;
-             ImGui::Combo("##wsmat",&gWsMat,mn,nM);}
-            ImGui::Text("%s", T("Radius (base)", "半径（基本）"));
-            ImGui::SetNextItemWidth(-1);
-            ImGui::SliderFloat("##wsr",&gWsRadius,0.05f,5.0f,"%.3f m");
+             ControlComboT("Material", "材質", "wsmat", &gWsMat, mn, nM);}
+            ControlSliderFloatT("Base radius", "半径（基本）", "wsr",
+                                &gWsRadius, 0.05f, 5.0f, "%.3f m",
+                                0, true, 0.5f);
             ImGui::Separator();
-            ImGui::TextDisabled("%s", T("NON-UNIFORM SCALE  (stretches & squashes)", "非等方スケール（伸縮）"));
-            float colW = ImGui::GetContentRegionAvail().x / 3.0f - 4;
-            ImGui::SetNextItemWidth(colW);
-            ImGui::SliderFloat("X##wsx",&gWsSx,0.05f,8.f,"%.2f"); ImGui::SameLine(0,4);
-            ImGui::SetNextItemWidth(colW);
-            ImGui::SliderFloat("Y##wsy",&gWsSy,0.05f,8.f,"%.2f"); ImGui::SameLine(0,4);
-            ImGui::SetNextItemWidth(colW);
-            ImGui::SliderFloat("Z##wsz",&gWsSz,0.05f,8.f,"%.2f");
-            if (ButtonT("Reset Scale##ws", "スケールリセット##ws", ImVec2(0,0)))
-                gWsSx=gWsSy=gWsSz=1.f;
+            AxisSlider3T("Non-uniform scale", "非等方スケール", "wsscale",
+                         &gWsSx, &gWsSy, &gWsSz, 0.05f, 8.f, "%.2f",
+                         true, 1.0f);
             // Physics preview
             const ObjectMaterial& wom = kObjectMaterials[gWsMat];
             float wvol  = shapeVolume(gWsShape, gWsRadius, gWsSx, gWsSy, gWsSz);
             float wmass = wom.rho * wvol;
             ImGui::Separator();
-            ImGui::TextColored(ImVec4(0.7f,0.9f,0.7f,1.f),
-                T("Effective size: %.3f × %.3f × %.3f m", "実効サイズ: %.3f × %.3f × %.3f m"),
+            char wsSize[128];
+            std::snprintf(wsSize, sizeof(wsSize), "%.3f x %.3f x %.3f m",
                 2*gWsRadius*gWsSx, 2*gWsRadius*gWsSy, 2*gWsRadius*gWsSz);
-            ImGui::TextColored(ImVec4(0.7f,0.9f,0.7f,1.f),
-                T("Volume: %.4f m³   Mass: %.2f kg", "体積: %.4f m³   質量: %.2f kg"), wvol, wmass);
-            ImGui::TextColored(ImVec4(1.0f,0.62f,0.05f,1.0f),
-                T("rho=%.0f kg/m³   E=%.1f GPa   e=%.2f", "ρ=%.0f kg/m³   E=%.1f GPa   e=%.2f"),
-                wom.rho, wom.E_GPa, wom.e_rest);
+            MetricLine(T("Effective size", "実効サイズ"), wsSize, ImVec4(0.70f,0.92f,0.72f,1.f));
+            char wsMass[128];
+            std::snprintf(wsMass, sizeof(wsMass), "%.4f m^3   %.2f kg", wvol, wmass);
+            MetricLine(T("Volume / mass", "体積 / 質量"), wsMass, ImVec4(0.70f,0.92f,0.72f,1.f));
+            char wsMatInfo[128];
+            std::snprintf(wsMatInfo, sizeof(wsMatInfo), "rho %.0f kg/m^3   E %.1f GPa   e %.2f",
+                          wom.rho, wom.E_GPa, wom.e_rest);
+            MetricLine(T("Material model", "材料モデル"), wsMatInfo, ImVec4(1.00f,0.72f,0.36f,1.f));
             float ra=gWsRadius*gWsSx, rb=gWsRadius*gWsSy, rc_=gWsRadius*gWsSz;
-            ImGui::TextColored(ImVec4(0.68f,0.32f,0.87f,1.0f),
-                "I_x=%.3f  I_y=%.3f  I_z=%.3f  kg·m²",
+            char wsInertia[128];
+            std::snprintf(wsInertia, sizeof(wsInertia), "Ix %.3f   Iy %.3f   Iz %.3f kg*m^2",
                 wmass*(rb*rb+rc_*rc_)/5.f, wmass*(ra*ra+rc_*rc_)/5.f, wmass*(ra*ra+rb*rb)/5.f);
+            MetricLine(T("Inertia", "慣性"), wsInertia, themeAccent());
             ImGui::Separator();
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.24f,0.68f,0.40f,0.86f));
-            if (ButtonT("Spawn into Scene", "シーンに配置", ImVec2(-1,0))) {
+            if (ActionButtonT("Spawn into Scene", "シーンに配置", ActionTone::Success, ImVec2(-1,38.f))) {
                 addSceneObject(gWsShape, gWsMat, gWsRadius, gWsSx, gWsSy, gWsSz);
                 pauseForSceneEditing();
             }
-            ImGui::PopStyleColor();
             ImGui::EndChild();
             ImGui::EndTabItem();
         }
@@ -3900,57 +4085,58 @@ void renderHUD() {
             ImGui::BeginChild("##conscroll", ImVec2(0, ImGui::GetContentRegionAvail().y), ImGuiChildFlags_None);
             ImGui::TextDisabled("%s", T("CONSTRAIN TWO OBJECTS", "2物体の拘束"));
             int nObj = (int)gSceneObjects.size();
-            ImGui::Text("%s", T("Object A", "物体 A"));
+            ControlLabel(T("Object A", "物体 A"));
             ImGui::SetNextItemWidth(-1);
             if (ImGui::BeginCombo("##connA", gWsConnA>=0&&gWsConnA<nObj?gSceneObjects[gWsConnA].label:T("(none)","（なし）"))) {
                 for (int i=0;i<nObj;++i) if (ImGui::Selectable(gSceneObjects[i].label, gWsConnA==i)) gWsConnA=i;
                 ImGui::EndCombo();
             }
-            ImGui::Text("%s", T("Object B  (none → world anchor)", "物体 B（なし → 世界固定点）"));
+            ImGui::Spacing();
+            ControlLabel(T("Object B", "物体 B"), T("none = world anchor", "なし = 世界固定点"));
             ImGui::SetNextItemWidth(-1);
             if (ImGui::BeginCombo("##connB", gWsConnB>=0&&gWsConnB<nObj?gSceneObjects[gWsConnB].label:T("(world anchor)","（世界固定点）"))) {
                 if (ImGui::Selectable(T("(world anchor)","（世界固定点）"), gWsConnB==-1)) gWsConnB=-1;
                 for (int i=0;i<nObj;++i) if (ImGui::Selectable(gSceneObjects[i].label, gWsConnB==i)) gWsConnB=i;
                 ImGui::EndCombo();
             }
+            ImGui::Spacing();
             ImGui::Separator();
-            ImGui::Text("%s", T("Constraint Type", "拘束種別"));
-            ImGui::SetNextItemWidth(-1);
-            ImGui::Combo("##contype",&gWsConType,getConstraintNamesL(),kNumConstraintTypes);
+            ControlComboT("Constraint type", "拘束種別", "contype",
+                          &gWsConType, getConstraintNamesL(), kNumConstraintTypes);
 
-            ImGui::TextDisabled("%s", T("PIVOT A  (local offset from object A centre)",
-                                        "ピボット A（物体 A の局所オフセット）"));
-            float cw3 = ImGui::GetContentRegionAvail().x/3.f - 4;
-            ImGui::SetNextItemWidth(cw3); ImGui::InputFloat("##pax",&gWsPivA.x,0,0,"%.2f"); ImGui::SameLine(0,4);
-            ImGui::SetNextItemWidth(cw3); ImGui::InputFloat("##pay",&gWsPivA.y,0,0,"%.2f"); ImGui::SameLine(0,4);
-            ImGui::SetNextItemWidth(cw3); ImGui::InputFloat("##paz",&gWsPivA.z,0,0,"%.2f");
+            AxisInput3T("Pivot A", "ピボット A", "pivA", &gWsPivA, "%.2f",
+                        true, Vec3{0,0,0});
             if (gWsConnB >= 0) {
-                ImGui::TextDisabled("%s", T("PIVOT B  (local offset from object B centre)",
-                                            "ピボット B（物体 B の局所オフセット）"));
-                ImGui::SetNextItemWidth(cw3); ImGui::InputFloat("##pbx",&gWsPivB.x,0,0,"%.2f"); ImGui::SameLine(0,4);
-                ImGui::SetNextItemWidth(cw3); ImGui::InputFloat("##pby",&gWsPivB.y,0,0,"%.2f"); ImGui::SameLine(0,4);
-                ImGui::SetNextItemWidth(cw3); ImGui::InputFloat("##pbz",&gWsPivB.z,0,0,"%.2f");
+                AxisInput3T("Pivot B", "ピボット B", "pivB", &gWsPivB, "%.2f",
+                            true, Vec3{0,0,0});
             }
             if (gWsConType == 1) { // Hinge extras
-                ImGui::TextDisabled("%s", T("HINGE AXIS & LIMITS", "ヒンジ軸と制限角"));
-                ImGui::SetNextItemWidth(cw3); ImGui::SliderFloat("ax##ha",&gWsHingeAx.x,-1.f,1.f,"%.2f"); ImGui::SameLine(0,4);
-                ImGui::SetNextItemWidth(cw3); ImGui::SliderFloat("ay##ha",&gWsHingeAx.y,-1.f,1.f,"%.2f"); ImGui::SameLine(0,4);
-                ImGui::SetNextItemWidth(cw3); ImGui::SliderFloat("az##ha",&gWsHingeAx.z,-1.f,1.f,"%.2f");
-                ImGui::SetNextItemWidth(130); ImGui::SliderFloat("Lo°##hl",&gWsLimitLow,-180.f,0.f,"%.0f"); ImGui::SameLine();
-                ImGui::SetNextItemWidth(130); ImGui::SliderFloat("Hi°##hh",&gWsLimitHigh,0.f,180.f,"%.0f");
+                AxisSlider3T("Hinge axis", "ヒンジ軸", "hingeAxis",
+                             &gWsHingeAx.x, &gWsHingeAx.y, &gWsHingeAx.z,
+                             -1.f, 1.f, "%.2f");
+                ControlSliderFloatT("Low limit", "下限制限", "hingeLow",
+                                    &gWsLimitLow, -180.f, 0.f, "%.0f deg");
+                ControlSliderFloatT("High limit", "上限制限", "hingeHigh",
+                                    &gWsLimitHigh, 0.f, 180.f, "%.0f deg");
             }
             if (gWsConType == 2) { // Spring extras
-                ImGui::TextDisabled("%s", T("SPRING PARAMETERS", "バネパラメータ"));
-                ImGui::SetNextItemWidth(-1); ImGui::SliderFloat(T("Stiffness k##sk","剛性 k##sk"),&gWsSpringK,1.f,50000.f,"%.0f N/m",ImGuiSliderFlags_Logarithmic);
-                ImGui::SetNextItemWidth(-1); ImGui::SliderFloat(T("Damping d##sd","減衰 d##sd"),&gWsSpringD,0.f,2000.f,"%.0f N·s/m");
+                ControlSliderFloatT("Stiffness k", "剛性 k", "springK",
+                                    &gWsSpringK, 1.f, 50000.f, "%.0f N/m",
+                                    ImGuiSliderFlags_Logarithmic, true, 500.f);
+                ControlSliderFloatT("Damping d", "減衰 d", "springD",
+                                    &gWsSpringD, 0.f, 2000.f, "%.0f N*s/m",
+                                    0, true, 20.f);
                 float wn = (gWsConnA>=0&&gWsConnA<nObj) ? std::sqrt(gWsSpringK / std::max(0.001f,
                     kObjectMaterials[gSceneObjects[gWsConnA].matIdx].rho *
                     4.f/3.f*pi*gSceneObjects[gWsConnA].r*gSceneObjects[gWsConnA].r*gSceneObjects[gWsConnA].r)) : 0.f;
-                if (wn>0) ImGui::TextColored(ImVec4(1.0f,0.80f,0.0f,1.0f),"  ω_n ≈ %.2f rad/s   f_n ≈ %.2f Hz",wn,wn/(2.f*pi));
+                if (wn>0) {
+                    char freqInfo[96];
+                    std::snprintf(freqInfo, sizeof(freqInfo), "wn %.2f rad/s   fn %.2f Hz", wn, wn/(2.f*pi));
+                    MetricLine(T("Natural frequency", "固有振動数"), freqInfo, ImVec4(1.00f,0.82f,0.24f,1.f));
+                }
             }
             ImGui::Separator();
-            ImGui::PushStyleColor(ImGuiCol_Button, alphaOf(themeAccent(), 0.88f));
-            if (ButtonT("Connect##do", "接続##do", ImVec2(-1,0)) && gWsConnA>=0 && gBtWorld) {
+            if (ActionButtonT("Connect##do", "接続##do", ActionTone::Primary, ImVec2(-1,38.f)) && gWsConnA>=0 && gBtWorld) {
                 SceneConstraint sc;
                 sc.typeIdx=gWsConType; sc.objA=gWsConnA; sc.objB=gWsConnB;
                 sc.pivotA=gWsPivA; sc.pivotB=gWsPivB;
@@ -3959,7 +4145,6 @@ void renderHUD() {
                 sc.springK=gWsSpringK; sc.springD=gWsSpringD;
                 addConstraint(sc);
             }
-            ImGui::PopStyleColor();
 
             if (!gSceneConstraints.empty()) {
                 ImGui::Separator();
@@ -3971,7 +4156,7 @@ void renderHUD() {
                     ImGui::Text("%s", lbl);
                     ImGui::SameLine();
                     ImGui::PushID(ci+2000);
-                    if (ImGui::SmallButton(T("Remove", "削除"))) removeConstraint(ci);
+                    if (ActionButtonT("Remove", "削除", ActionTone::Danger, ImVec2(82.f, 0))) removeConstraint(ci);
                     ImGui::PopID();
                 }
             }
@@ -3986,68 +4171,71 @@ void renderHUD() {
                 SceneObject& obj = gSceneObjects[gSelectedObjIdx];
                 ImGui::TextColored(themeAccent(),
                     T("Editing: %s", "編集中: %s"), obj.label);
-                ImGui::InputText(T("Name##rn", "名称##rn"), obj.label, sizeof(obj.label));
+                ControlLabel(T("Name", "名称"));
+                ImGui::SetNextItemWidth(-1);
+                ImGui::InputText("##rn", obj.label, sizeof(obj.label));
 
                 ImGui::Separator();
-                ImGui::TextDisabled("%s", T("POSITION", "位置"));
                 bool pc=false;
-                ImGui::SetNextItemWidth(-1); pc|=ImGui::SliderFloat("##rpx",&obj.pos.x,-500.f,500.f,"X: %.2f m");
-                ImGui::SetNextItemWidth(-1); pc|=ImGui::SliderFloat("##rpy",&obj.pos.y,  0.f, 60.f,"Y: %.2f m");
-                ImGui::SetNextItemWidth(-1); pc|=ImGui::SliderFloat("##rpz",&obj.pos.z,-500.f,500.f,"Z: %.2f m");
+                pc |= ControlSliderFloatT("Position X", "位置 X", "rpx",
+                                          &obj.pos.x, -500.f, 500.f, "%.2f m");
+                pc |= ControlSliderFloatT("Position Y", "位置 Y", "rpy",
+                                          &obj.pos.y, 0.f, 60.f, "%.2f m");
+                pc |= ControlSliderFloatT("Position Z", "位置 Z", "rpz",
+                                          &obj.pos.z, -500.f, 500.f, "%.2f m");
                 if (pc) pushSceneObjectToBullet(obj);
 
                 ImGui::Separator();
-                ImGui::TextDisabled("%s", T("ROTATION (degrees)", "回転（度）"));
                 bool rc2=false;
-                ImGui::SetNextItemWidth(-1); rc2|=ImGui::SliderFloat("##rep",&obj.euler.x,-180.f,180.f,T("Pitch: %.1f","ピッチ: %.1f"));
-                ImGui::SetNextItemWidth(-1); rc2|=ImGui::SliderFloat("##rey",&obj.euler.y,-180.f,180.f,T("Yaw:   %.1f","ヨー: %.1f"));
-                ImGui::SetNextItemWidth(-1); rc2|=ImGui::SliderFloat("##rer",&obj.euler.z,-180.f,180.f,T("Roll:  %.1f","ロール: %.1f"));
+                rc2 |= ControlSliderFloatT("Pitch", "ピッチ", "rep",
+                                           &obj.euler.x, -180.f, 180.f, "%.1f deg");
+                rc2 |= ControlSliderFloatT("Yaw", "ヨー", "rey",
+                                           &obj.euler.y, -180.f, 180.f, "%.1f deg");
+                rc2 |= ControlSliderFloatT("Roll", "ロール", "rer",
+                                           &obj.euler.z, -180.f, 180.f, "%.1f deg");
                 if (rc2) { obj.orient=eulerToQuat(obj.euler.x,obj.euler.y,obj.euler.z); pushSceneObjectToBullet(obj); }
 
                 ImGui::Separator();
-                ImGui::TextDisabled("%s", T("SCALE (stretches physics shape)", "スケール（物理形状を変形）"));
-                float cw = ImGui::GetContentRegionAvail().x/3.f - 4;
                 float nsx=obj.sx, nsy=obj.sy, nsz=obj.sz;
-                bool scChanged=false;
-                ImGui::SetNextItemWidth(cw); scChanged|=ImGui::SliderFloat("X##rsx",&nsx,0.05f,8.f,"%.2f"); ImGui::SameLine(0,4);
-                ImGui::SetNextItemWidth(cw); scChanged|=ImGui::SliderFloat("Y##rsy",&nsy,0.05f,8.f,"%.2f"); ImGui::SameLine(0,4);
-                ImGui::SetNextItemWidth(cw); scChanged|=ImGui::SliderFloat("Z##rsz",&nsz,0.05f,8.f,"%.2f");
+                bool scChanged = AxisSlider3T("Scale", "スケール", "refscale",
+                                              &nsx, &nsy, &nsz, 0.05f, 8.f, "%.2f",
+                                              true, 1.0f);
                 if (scChanged) {
                     obj.sx=nsx; obj.sy=nsy; obj.sz=nsz;
                     if (obj.bshape) obj.bshape->setLocalScaling(btVector3(nsx,nsy,nsz));
                 }
                 float newR=obj.r;
-                ImGui::SetNextItemWidth(-1);
-                if (ImGui::SliderFloat("##rsr",&newR,0.1f,5.f,T("Radius: %.3f m","半径: %.3f m")) && newR!=obj.r) {
+                if (ControlSliderFloatT("Radius", "半径", "rsr", &newR, 0.1f, 5.f, "%.3f m",
+                                        0, true, 0.5f) && newR!=obj.r) {
                     obj.r=newR; rebuildSceneObjectShape(gSelectedObjIdx);
                 }
 
                 ImGui::Separator();
-                ImGui::TextDisabled("%s", T("MATERIAL", "材質"));
-                ImGui::SetNextItemWidth(-1);
                 {constexpr int nM=sizeof(kObjectMaterials)/sizeof(kObjectMaterials[0]);
                  const char* mn[nM]; for(int i=0;i<nM;i++) mn[i]=(gLang==Lang::JA)?kObjMatNamesJA[i]:kObjectMaterials[i].name;
-                 if (ImGui::Combo("##rmat",&obj.matIdx,mn,nM)) rebuildSceneObjectShape(gSelectedObjIdx);}
+                 if (ControlComboT("Material", "材質", "rmat", &obj.matIdx, mn, nM)) rebuildSceneObjectShape(gSelectedObjIdx);}
 
                 ImGui::Separator();
-                ImGui::TextDisabled("%s", T("FORCE CONTROL", "力の制御"));
+                ControlLabel(T("Force control", "力の制御"));
                 ImGui::Checkbox(T("Continuous force##rf", "持続力##rf"), &obj.forceOn);
-                float cw2=ImGui::GetContentRegionAvail().x/3.f-4;
-                ImGui::SetNextItemWidth(cw2); ImGui::SliderFloat("dX##fdx",&obj.forceDir.x,-1.f,1.f,"%.2f"); ImGui::SameLine(0,4);
-                ImGui::SetNextItemWidth(cw2); ImGui::SliderFloat("dY##fdy",&obj.forceDir.y,-1.f,1.f,"%.2f"); ImGui::SameLine(0,4);
-                ImGui::SetNextItemWidth(cw2); ImGui::SliderFloat("dZ##fdz",&obj.forceDir.z,-1.f,1.f,"%.2f");
-                ImGui::SetNextItemWidth(-1); ImGui::SliderFloat(T("Magnitude (N)##fmag","大きさ (N)##fmag"),&obj.forceMag,0.f,100000.f,"%.0f N",ImGuiSliderFlags_Logarithmic);
-                ImGui::SetNextItemWidth(-1);
-                ImGui::SliderFloat(T("Impulse##impmag","力積##impmag"),&obj.impulseStrength,1.f,500000.f,"%.0f N·s",ImGuiSliderFlags_Logarithmic);
+                AxisSlider3T("Direction", "方向", "forcedir",
+                             &obj.forceDir.x, &obj.forceDir.y, &obj.forceDir.z,
+                             -1.f, 1.f, "%.2f");
+                ControlSliderFloatT("Magnitude", "大きさ", "fmag",
+                                    &obj.forceMag, 0.f, 100000.f, "%.0f N",
+                                    ImGuiSliderFlags_Logarithmic, true, 0.f);
+                ControlSliderFloatT("Impulse", "力積", "impmag",
+                                    &obj.impulseStrength, 1.f, 500000.f, "%.0f N*s",
+                                    ImGuiSliderFlags_Logarithmic, true, 500.f);
                 char fireL[64];
-                std::snprintf(fireL,sizeof(fireL),T("Fire Impulse (%.0f N·s)","力積発射 (%.0f N·s)"),obj.impulseStrength);
-                if (ImGui::Button(fireL, ImVec2(-1,0)) && obj.body) {
+                std::snprintf(fireL,sizeof(fireL),T("Fire Impulse (%.0f N*s)","力積発射 (%.0f N*s)"),obj.impulseStrength);
+                if (ActionButtonT(fireL, fireL, ActionTone::Primary, ImVec2(-1,36.f)) && obj.body) {
                     Vec3 fd=normalize(obj.forceDir);
                     obj.body->applyCentralImpulse(btVector3(fd.x*obj.impulseStrength,fd.y*obj.impulseStrength,fd.z*obj.impulseStrength));
                     obj.body->activate();
                 }
                 ImGui::Separator();
-                if (ButtonT("Reset Velocity##rv", "速度リセット##rv", ImVec2(0,0)) && obj.body) {
+                if (ActionButtonT("Reset Velocity##rv", "速度リセット##rv", ActionTone::Neutral, ImVec2(170.f,34.f)) && obj.body) {
                     obj.body->setLinearVelocity(btVector3(0,0,0));
                     obj.body->setAngularVelocity(btVector3(0,0,0));
                     obj.body->clearForces(); obj.body->activate();
@@ -4056,11 +4244,11 @@ void renderHUD() {
                 ImGui::TextColored(ImVec4(0.7f,0.9f,0.7f,1.f),"v=%.2f m/s", std::sqrt(dot(obj.vel,obj.vel)));
 
                 ImGui::Separator();
-                if (ButtonT("Clone Object##clone", "複製##clone", ImVec2(-1,0))) {
+                if (ActionButtonT("Clone Object##clone", "複製##clone", ActionTone::Primary, ImVec2(-1,36.f))) {
                     addSceneObject(obj.shapeType, obj.matIdx, obj.r, obj.sx, obj.sy, obj.sz);
                     pauseForSceneEditing();
                 }
-                if (ButtonT("Delete Object##del", "削除##del", ImVec2(-1,0)))
+                if (ActionButtonT("Delete Object##del", "削除##del", ActionTone::Danger, ImVec2(-1,36.f)))
                     removeSceneObject(gSelectedObjIdx);
             } else {
                 ImGui::TextDisabled("%s", T("  Select an object in the scene list to refine.",
