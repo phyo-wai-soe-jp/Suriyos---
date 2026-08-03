@@ -3129,8 +3129,9 @@ void renderHUD() {
 
     // ── Drag-drop overlay (rendered first so combined panel sits on top) ────────
     if (ImGui::GetDragDropPayload() != nullptr) {
+        ImVec2 dropDisp = ImGui::GetIO().DisplaySize;
         ImGui::SetNextWindowPos(ImVec2(0.f, 0.f));
-        ImGui::SetNextWindowSize(ImVec2((float)framebufferWidth, (float)framebufferHeight));
+        ImGui::SetNextWindowSize(dropDisp);
         ImGui::SetNextWindowBgAlpha(0.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
         ImGui::Begin("##libdrop", nullptr,
@@ -3138,12 +3139,11 @@ void renderHUD() {
             ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
             ImGuiWindowFlags_NoBringToFrontOnFocus);
         ImGui::PopStyleVar();
-        ImGui::InvisibleButton("##vpdrop",
-            ImVec2((float)framebufferWidth, (float)framebufferHeight));
+        ImGui::InvisibleButton("##vpdrop", dropDisp);
         if (ImGui::BeginDragDropTarget()) {
             ImGui::GetForegroundDrawList()->AddRect(
                 ImVec2(4.f,4.f),
-                ImVec2((float)framebufferWidth-4.f,(float)framebufferHeight-4.f),
+                ImVec2(dropDisp.x-4.f, dropDisp.y-4.f),
                 toU32(alphaOf(themeAccent(), 0.55f)),0.f,0,2.f);
             if (const ImGuiPayload* p = ImGui::AcceptDragDropPayload("LIB_OBJECT")) {
                 const LibDragPayload* ld = static_cast<const LibDragPayload*>(p->Data);
@@ -3198,12 +3198,19 @@ void renderHUD() {
 
     // ── Main panel (only when open) ───────────────────────────────────────────
     if (gPanelOpen) {
+    // Sized from io.DisplaySize (CSS pixels), not framebufferHeight (physical
+    // canvas pixels) — on any Retina/high-DPI display those differ by the
+    // device pixel ratio, and using the physical value here made the window
+    // roughly twice as tall as the visible viewport, with no way to reach
+    // the part hanging off the bottom (NoScrollbar/NoScrollWithMouse below
+    // also blocked panning to it even when the window height was otherwise
+    // fine, e.g. on a short browser window).
+    ImVec2 disp = ImGui::GetIO().DisplaySize;
     ImGui::SetNextWindowPos(ImVec2(12.f, 12.f), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(gStoredPanelW, (float)framebufferHeight - 24.f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(gStoredPanelW, disp.y - 24.f), ImGuiCond_Always);
     ImGui::Begin("##mainpanel", nullptr,
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar |
         ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
-        ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse |
         ImGuiWindowFlags_NoBackground);
     gStoredPanelW = ImGui::GetWindowSize().x;
 
