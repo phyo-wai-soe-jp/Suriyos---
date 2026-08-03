@@ -3032,7 +3032,18 @@ static void drawMainPanelHeader() {
         ImGui::GetWindowDrawList()->AddText(textPos, IM_COL32(255,255,255,255), "日本");
     }
     ImGui::SameLine(0.0f, 4.0f);
-    bool enClicked = macSegmentButton("ENG", !jaActive, {half, 28.0f});
+    // Same manual-centering treatment as the 日本 button above, applied
+    // here too rather than assuming plain Latin text is exempt.
+    ImVec2 engPos = ImGui::GetCursorScreenPos();
+    bool enClicked = macSegmentButton("##eng", !jaActive, {half, 28.0f});
+    {
+        ImVec2 ts = ImGui::CalcTextSize("ENG");
+        ImVec2 textPos = {
+            engPos.x + (half - ts.x) * 0.5f,
+            engPos.y + (28.0f - ts.y) * 0.5f,
+        };
+        ImGui::GetWindowDrawList()->AddText(textPos, IM_COL32(255,255,255,255), "ENG");
+    }
     if (jpClicked && !jaActive) gLang = Lang::JA;
     if (enClicked && jaActive) gLang = Lang::EN;
 
