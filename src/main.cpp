@@ -2597,6 +2597,7 @@ static void setup3DStyle(float dpiScale) {
     s.GrabMinSize       = 12.0f;
     s.WindowMinSize     = ImVec2(80.0f, 40.0f);
     s.WindowTitleAlign  = ImVec2(0.5f, 0.5f);
+    s.ButtonTextAlign   = ImVec2(0.5f, 0.5f);
 
     if (dpiScale > 1.0f) s.ScaleAllSizes(dpiScale);
 
@@ -3211,7 +3212,7 @@ void renderHUD() {
     ImGui::Begin("##mainpanel", nullptr,
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar |
         ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
-        ImGuiWindowFlags_NoBackground);
+        ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoResize);
     gStoredPanelW = ImGui::GetWindowSize().x;
 
     drawMainPanelHeader();
