@@ -2237,8 +2237,13 @@ static void updateGizmoDrag(double mx, double my) {
             ns[1]=std::max(0.05f,gGizmoDrag.startSy*u);
             ns[2]=std::max(0.05f,gGizmoDrag.startSz*u);
         }
+        // Update the visual scale only; render() reads obj.sx/sy/sz directly
+        // every frame, so this alone is enough for smooth live feedback.
+        // Rebuilding the actual Bullet collision shape here would mean
+        // deleting and reallocating a rigid body on every single mouse-move
+        // event for the whole drag - rebuildSceneObjectShape() is deferred
+        // to drag-release instead (see mouseButtonCallback).
         obj.sx=ns[0]; obj.sy=ns[1]; obj.sz=ns[2];
-        rebuildSceneObjectShape(gSelectedObjIdx);
     }
 }
 
@@ -2493,6 +2498,13 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             }
         }
     } else {                                // RELEASE
+        // A scale drag only updates the visual sx/sy/sz each frame (see
+        // updateGizmoDrag); catch the actual Bullet collision shape up to
+        // the final size now that dragging has stopped.
+        if (gGizmoDrag.active && gGizmoMode == GizmoMode::Scale &&
+            gSelectedObjIdx >= 0 && gSelectedObjIdx < (int)gSceneObjects.size()) {
+            rebuildSceneObjectShape(gSelectedObjIdx);
+        }
         gGizmoDrag.active = false;
         dragging = false;
     }
