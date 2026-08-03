@@ -2489,6 +2489,33 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     cameraDistance = std::clamp(cameraDistance, 3.0f, 2000.0f);
 }
 
+void charCallback(GLFWwindow* window, unsigned int c) {
+    ImGui_ImplGlfw_CharCallback(window, c);
+}
+
+#if defined(__EMSCRIPTEN__)
+static EM_BOOL webTextInputCallback(int eventType, const EmscriptenKeyboardEvent* e, void*) {
+    if (eventType != EMSCRIPTEN_EVENT_KEYPRESS || !e) return EM_FALSE;
+
+    ImGuiIO& io = ImGui::GetIO();
+    if (!io.WantTextInput || e->ctrlKey || e->metaKey || e->altKey) return EM_FALSE;
+
+    if (e->charValue[0] != '\0') {
+        io.AddInputCharactersUTF8(e->charValue);
+        return EM_TRUE;
+    }
+    if (e->charCode >= 32) {
+        io.AddInputCharacter(e->charCode);
+        return EM_TRUE;
+    }
+    if (e->key[0] != '\0' && e->key[1] == '\0') {
+        io.AddInputCharactersUTF8(e->key);
+        return EM_TRUE;
+    }
+    return EM_FALSE;
+}
+#endif
+
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
     if (ImGui::GetIO().WantCaptureMouse) return;
@@ -2611,7 +2638,7 @@ void printHelp() {
     std::printf("  Esc             : quit\n");
 }
 
-// ── Refined macOS glass UI — frosted panels, restrained accents ───────────────
+// ── Refined dark UI — solid panels, restrained accents ───────────────────────
 static void setup3DStyle(float dpiScale) {
     ImGuiStyle& s = ImGui::GetStyle();
 
@@ -2647,9 +2674,9 @@ static void setup3DStyle(float dpiScale) {
     c[ImGuiCol_Text]                  = ImVec4(0.96f, 0.97f, 0.99f, 1.00f);
     c[ImGuiCol_TextDisabled]          = ImVec4(0.54f, 0.56f, 0.62f, 1.00f);
 
-    c[ImGuiCol_WindowBg]              = ImVec4(0.07f, 0.08f, 0.12f, 0.84f);
-    c[ImGuiCol_ChildBg]               = ImVec4(1.00f, 1.00f, 1.00f, 0.03f);
-    c[ImGuiCol_PopupBg]               = ImVec4(0.08f, 0.09f, 0.14f, 0.94f);
+    c[ImGuiCol_WindowBg]              = ImVec4(0.01f, 0.01f, 0.02f, 0.98f);
+    c[ImGuiCol_ChildBg]               = ImVec4(0.02f, 0.02f, 0.03f, 0.62f);
+    c[ImGuiCol_PopupBg]               = ImVec4(0.02f, 0.02f, 0.03f, 0.98f);
 
     c[ImGuiCol_Border]                = ImVec4(1.00f, 1.00f, 1.00f, 0.16f);
     c[ImGuiCol_BorderShadow]          = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
@@ -2850,27 +2877,27 @@ struct ThC {
 };
 static const ThC kThC[5] = {
   // 0 Midnight — system blue
-  {{.07f,.08f,.12f,.84f},{.00f,.48f,1.0f,.82f},{1,1,1,.07f},{1,1,1,.12f},
+  {{.01f,.01f,.02f,.98f},{.00f,.48f,1.0f,.82f},{1,1,1,.07f},{1,1,1,.12f},
    {.40f,.75f,1.00f,.92f},{.00f,.48f,1,1},{1,1,1,.10f},{1,1,1,.18f},
    {.00f,.48f,1,.86f},{.00f,.48f,1,.18f},{.00f,.48f,1,.30f},
    {1,1,1,.04f},{.00f,.48f,1,.80f},{1,1,1,.12f},{1,1,1,.12f}},
   // 1 Solar — system orange
-  {{.07f,.08f,.12f,.84f},{1.0f,.58f,.00f,.82f},{1,1,1,.07f},{1,1,1,.12f},
+  {{.01f,.01f,.02f,.98f},{1.0f,.58f,.00f,.82f},{1,1,1,.07f},{1,1,1,.12f},
    {1.00f,.65f,.35f,.92f},{1,.58f,.00f,1},{1,1,1,.10f},{1,1,1,.18f},
    {1,.58f,.00f,.86f},{1,.58f,.00f,.18f},{1,.58f,.00f,.30f},
    {1,1,1,.04f},{1,.58f,.00f,.80f},{1,1,1,.12f},{1,1,1,.12f}},
   // 2 Mint — system teal
-  {{.07f,.08f,.12f,.84f},{.00f,.78f,.74f,.82f},{1,1,1,.07f},{1,1,1,.12f},
+  {{.01f,.01f,.02f,.98f},{.00f,.78f,.74f,.82f},{1,1,1,.07f},{1,1,1,.12f},
    {.45f,.95f,.86f,.92f},{.00f,.78f,.74f,1},{1,1,1,.10f},{1,1,1,.18f},
    {.00f,.78f,.74f,.86f},{.00f,.78f,.74f,.18f},{.00f,.78f,.74f,.30f},
    {1,1,1,.04f},{.00f,.78f,.74f,.80f},{1,1,1,.12f},{1,1,1,.12f}},
   // 3 Bloom — system purple
-  {{.07f,.08f,.12f,.84f},{.68f,.32f,.87f,.82f},{1,1,1,.07f},{1,1,1,.12f},
+  {{.01f,.01f,.02f,.98f},{.68f,.32f,.87f,.82f},{1,1,1,.07f},{1,1,1,.12f},
    {.78f,.52f,1.00f,.92f},{.68f,.32f,.87f,1},{1,1,1,.10f},{1,1,1,.18f},
    {.68f,.32f,.87f,.86f},{.68f,.32f,.87f,.18f},{.68f,.32f,.87f,.30f},
    {1,1,1,.04f},{.68f,.32f,.87f,.80f},{1,1,1,.12f},{1,1,1,.12f}},
   // 4 Rose — system pink
-  {{.07f,.08f,.12f,.84f},{1.0f,.18f,.33f,.82f},{1,1,1,.07f},{1,1,1,.12f},
+  {{.01f,.01f,.02f,.98f},{1.0f,.18f,.33f,.82f},{1,1,1,.07f},{1,1,1,.12f},
    {1.00f,.45f,.75f,.92f},{1,.18f,.33f,1},{1,1,1,.10f},{1,1,1,.18f},
    {1,.18f,.33f,.86f},{1,.18f,.33f,.18f},{1,.18f,.33f,.30f},
    {1,1,1,.04f},{1,.18f,.33f,.80f},{1,1,1,.12f},{1,1,1,.12f}},
@@ -3047,12 +3074,15 @@ static bool ControlSliderFloatT(const char* en, const char* ja, const char* id,
     ImGui::PushID(id);
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6.0f, 4.0f));
     const char* inputFormat = InputFormatForSlider(format);
-    float inputW = 78.0f;
+    float inputW = 90.0f;
+    auto shortSliderW = [](float availW) {
+        return std::clamp(availW * 0.18f, 52.0f, 70.0f);
+    };
     float avail = ImGui::GetContentRegionAvail().x;
     if (showReset) {
         float resetW = 64.0f;
-        if (avail >= 250.0f) {
-            float sliderW = std::max(96.0f, avail - inputW - resetW - 12.0f);
+        if (avail >= inputW + resetW + 76.0f) {
+            float sliderW = shortSliderW(avail);
             ImGui::SetNextItemWidth(sliderW);
             changed |= ImGui::SliderFloat("##slider", value, minValue, maxValue, "", flags);
             ImGui::SameLine(0.0f, 6.0f);
@@ -3077,8 +3107,8 @@ static bool ControlSliderFloatT(const char* en, const char* ja, const char* id,
             changed = true;
         }
     } else {
-        if (avail >= 190.0f) {
-            float sliderW = std::max(104.0f, avail - inputW - 6.0f);
+        if (avail >= inputW + 76.0f) {
+            float sliderW = shortSliderW(avail);
             ImGui::SetNextItemWidth(sliderW);
             changed |= ImGui::SliderFloat("##slider", value, minValue, maxValue, "", flags);
             ImGui::SameLine(0.0f, 6.0f);
@@ -3117,12 +3147,12 @@ static bool AxisSlider3T(const char* en, const char* ja, const char* id,
         ImGui::PushID(rowId);
         float avail = ImGui::GetContentRegionAvail().x;
         float axisW = 24.0f;
-        float inputW = 72.0f;
+        float inputW = 82.0f;
+        float sliderW = std::clamp(avail * 0.18f, 52.0f, 70.0f);
         ImGui::AlignTextToFramePadding();
         ImGui::TextColored(color, "%s", axis);
         ImGui::SameLine(0.0f, 8.0f);
-        if (avail >= 210.0f) {
-            float sliderW = std::max(96.0f, avail - axisW - inputW - 14.0f);
+        if (avail >= axisW + inputW + 84.0f) {
             ImGui::SetNextItemWidth(sliderW);
             changed |= ImGui::SliderFloat("##slider", value, minValue, maxValue, "");
             ImGui::SameLine(0.0f, 6.0f);
@@ -3199,6 +3229,31 @@ static bool AxisInput3T(const char* en, const char* ja, const char* id,
     return changed;
 }
 
+static bool BorderedCategoryButton(const char* label, bool selected, ImVec2 size) {
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    ImGui::InvisibleButton("##catbtn", size);
+    bool clicked = ImGui::IsItemClicked();
+    bool hovered = ImGui::IsItemHovered();
+
+    ImVec4 accent = themeAccent();
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    ImU32 bg = selected ? toU32(alphaOf(accent, 0.30f))
+              : hovered ? IM_COL32(34,36,42,255)
+                        : IM_COL32(13,14,18,255);
+    ImU32 br = selected ? toU32(alphaOf(accent, 0.95f))
+              : hovered ? IM_COL32(165,174,194,150)
+                        : IM_COL32(255,255,255,72);
+    dl->AddRectFilled(p, {p.x + size.x, p.y + size.y}, bg, 7.0f);
+    dl->AddRect(p, {p.x + size.x, p.y + size.y}, br, 7.0f, 0, selected ? 1.6f : 1.0f);
+
+    ImVec2 ts = ImGui::CalcTextSize(label);
+    ImU32 textCol = selected ? IM_COL32(245,248,255,255) : IM_COL32(215,220,232,235);
+    dl->PushClipRect({p.x + 8.0f, p.y}, {p.x + size.x - 8.0f, p.y + size.y}, true);
+    dl->AddText({p.x + 12.0f, p.y + (size.y - ts.y) * 0.5f}, textCol, label);
+    dl->PopClipRect();
+    return clicked;
+}
+
 static void MetricLine(const char* label, const char* value, ImVec4 color = ImVec4(0.68f,0.82f,0.98f,1.f)) {
     ImGui::TextDisabled("%s", label);
     ImGui::SameLine();
@@ -3237,19 +3292,14 @@ static void drawMacPanelSurface() {
     float r = ImGui::GetStyle().WindowRounding;
     ImVec4 accent = themeAccent();
 
-    dl->AddRectFilled({p.x + 1.0f, p.y + 6.0f}, {q.x + 1.0f, q.y + 6.0f},
-        IM_COL32(0,0,0,28), r);
-    dl->AddRectFilled({p.x + 2.0f, p.y + 3.0f}, {q.x + 2.0f, q.y + 3.0f},
-        IM_COL32(0,0,0,18), r);
-
-    dl->AddRectFilled(p, q, IM_COL32(18,20,26,214), r);
-    dl->AddRectFilled(p, {q.x, p.y + 64.0f}, IM_COL32(24,26,34,208), r);
+    dl->AddRectFilled(p, q, IM_COL32(2,2,4,252), r);
+    dl->AddRectFilled(p, {q.x, p.y + 64.0f}, IM_COL32(6,7,10,255), r);
 
     dl->AddLine({p.x + r, p.y + 64.0f}, {q.x - r, p.y + 64.0f},
-        IM_COL32(255,255,255,18), 1.0f);
+        IM_COL32(255,255,255,28), 1.0f);
     dl->AddLine({p.x + r, p.y + 1.0f}, {q.x - r, p.y + 1.0f},
-        toU32(alphaOf(accent, 0.55f)), 1.0f);
-    dl->AddRect(p, q, IM_COL32(255,255,255,22), r, 0, 1.0f);
+        toU32(alphaOf(accent, 0.62f)), 1.0f);
+    dl->AddRect(p, q, IM_COL32(255,255,255,36), r, 0, 1.0f);
 }
 
 static void drawMainPanelHeader() {
@@ -3869,22 +3919,33 @@ void renderHUD() {
     if (ImGui::BeginTabItem(T("Library", "ライブラリ"))) {
     ImGui::BeginChild("##libscroll", ImVec2(0, ImGui::GetContentRegionAvail().y), ImGuiChildFlags_None);
 
-    // ── Category sidebar + card grid ──────────────────────────────────────────
-    // Wide enough for the longest category label ("Primitives"/"Cylinders")
-    // without truncating - 96px clipped them mid-word.
-    ImGui::BeginChild("##libcats", ImVec2(118,300), true);
+    // ── Category filters + card grid ─────────────────────────────────────────
     ImGui::TextDisabled("%s", T("BROWSE", "一覧"));
     ImGui::Spacing();
-    for (int ci=0; ci<kNumLibCats; ++ci) {
-        bool sel = (gLibCatFilter==ci);
-        if (sel) ImGui::PushStyleColor(ImGuiCol_Header, alphaOf(themeAccent(), 0.32f));
-        if (ImGui::Selectable((gLang==Lang::JA)?kLibCategoriesJA[ci]:kLibCategories[ci], sel, 0, ImVec2(0,30)))
-            { gLibCatFilter=ci; gLibSelected=-1; gLibVariantSel=0; }
-        if (sel) ImGui::PopStyleColor();
+    {
+        float availX = ImGui::GetContentRegionAvail().x;
+        float rowX = 0.0f;
+        for (int ci=0; ci<kNumLibCats; ++ci) {
+            const char* label = (gLang==Lang::JA)?kLibCategoriesJA[ci]:kLibCategories[ci];
+            float w = std::clamp(ImGui::CalcTextSize(label).x + 28.0f, 58.0f, availX);
+            if (ci > 0) {
+                if (rowX + 6.0f + w > availX) {
+                    ImGui::NewLine();
+                    rowX = 0.0f;
+                } else {
+                    ImGui::SameLine(0.0f, 6.0f);
+                    rowX += 6.0f;
+                }
+            }
+            bool sel = (gLibCatFilter==ci);
+            ImGui::PushID(ci);
+            if (BorderedCategoryButton(label, sel, ImVec2(w, 30.f)))
+                { gLibCatFilter=ci; gLibSelected=-1; gLibVariantSel=0; }
+            ImGui::PopID();
+            rowX += w;
+        }
     }
-    ImGui::EndChild();
-
-    ImGui::SameLine();
+    ImGui::Spacing();
 
     // card grid
     ImGui::BeginChild("##libgrid", ImVec2(0,300), true);
@@ -4382,6 +4443,9 @@ int main() {
         });
 #endif
     glfwSetKeyCallback(window, keyCallback);
+#if !defined(__EMSCRIPTEN__)
+    glfwSetCharCallback(window, charCallback);
+#endif
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
 #if !defined(__EMSCRIPTEN__)
     glfwSetCursorPosCallback(window, cursorCallback);
@@ -4516,6 +4580,9 @@ int main() {
 
     ImGui_ImplGlfw_InitForOpenGL(window, false);
 #if defined(__EMSCRIPTEN__)
+    emscripten_set_keypress_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true,
+        webTextInputCallback);
+
     // Without a registered cursor-enter callback, ImGui_ImplGlfw_UpdateMouseData()
     // treats bd->MouseWindow as never set and, every single frame, overwrites
     // whatever position our own event-driven callbacks report with a fresh
