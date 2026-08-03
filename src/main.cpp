@@ -2882,27 +2882,26 @@ static ImVec4 alphaOf(ImVec4 c, float alpha) {
     return c;
 }
 
-// ImGui::Button's own internal text rendering visibly mispositions labels
-// that are pure Japanese/CJK script with no Latin characters mixed in -
-// confirmed with a debug crosshair at several buttons' exact geometric
-// centers ("日", "削除", "リセット" all rendered noticeably low; mixed
-// strings like "停止[P]" did not). Drop-in replacement for
-// ImGui::Button(T(en, ja), size): on the Japanese side, draws the button
-// with an invisible label (preserving click/hover/style/auto-sizing
-// behavior identically to a real ImGui::Button call) then manually
-// centers the real text via AddText, which measured correct to within
-// 1px. Understands the "##id" suffix convention the same way ImGui does
-// (hidden from both the size measurement and the drawn text). The English
-// side is unaffected by any of this and renders via plain ImGui::Button.
+// ImGui::Button's own internal text rendering visibly mispositions its
+// label vertically - first found on pure Japanese/CJK text ("日", "削除",
+// "リセット" all rendered noticeably low), but a precise debug-crosshair
+// measurement of the English "Reset" button (~6.75px too low) showed this
+// isn't CJK-specific at all; casual screenshot inspection had simply missed
+// the same offset on English labels earlier. Drop-in replacement for
+// ImGui::Button(T(en, ja), size), applied uniformly regardless of language:
+// draws the button with an invisible label (preserving click/hover/style/
+// auto-sizing behavior identically to a real ImGui::Button call) then
+// manually centers the real text via AddText, which measured correct to
+// within 1px wherever checked. Understands the "##id" suffix convention the
+// same way ImGui does (hidden from both the size measurement and the drawn
+// text).
 static bool ButtonT(const char* en, const char* ja, ImVec2 size_arg = ImVec2(0, 0)) {
-    if (gLang != Lang::JA)
-        return ImGui::Button(en, size_arg);
-
-    const char* hash = std::strstr(ja, "##");
-    size_t visLen = hash ? (size_t)(hash - ja) : std::strlen(ja);
+    const char* label = (gLang == Lang::JA) ? ja : en;
+    const char* hash = std::strstr(label, "##");
+    size_t visLen = hash ? (size_t)(hash - label) : std::strlen(label);
     char visible[64];
     visLen = std::min(visLen, sizeof(visible) - 1);
-    std::memcpy(visible, ja, visLen);
+    std::memcpy(visible, label, visLen);
     visible[visLen] = '\0';
 
     ImGuiStyle& style = ImGui::GetStyle();
@@ -2916,8 +2915,8 @@ static bool ButtonT(const char* en, const char* ja, ImVec2 size_arg = ImVec2(0, 
     ImVec2 size(w, h);
 
     ImVec2 pos = ImGui::GetCursorScreenPos();
-    ImGui::PushID(ja);
-    bool clicked = ImGui::Button("##btnja", size);
+    ImGui::PushID(label);
+    bool clicked = ImGui::Button("##btnT", size);
     ImGui::PopID();
 
     ImVec2 textPos = {
