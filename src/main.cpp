@@ -2526,13 +2526,24 @@ void framebufferSizeCallback(GLFWwindow*, int width, int height) {
 // window is created. This resizes the real framebuffer to CSS size ×
 // devicePixelRatio (verified via devtools: it was rendering at a flat
 // 900x700 and being upscaled by the browser to fill the page, which is
-// what caused the blur), and is re-run on every browser resize.
+// what caused the blur).
+//
+// Called every frame (see mainLoopIteration), not just once at startup +
+// on resize events: this runs so early — the instant the wasm module
+// finishes loading — that the browser may not have finished its first
+// layout pass yet, so emscripten_get_element_css_size can read back 0 or a
+// stale size at that exact moment, with no further resize event ever
+// firing afterward to correct it since the window itself doesn't change
+// size again. Re-checking every frame makes it self-correcting regardless
+// of that startup race, at negligible cost since it's a no-op once the
+// size actually matches.
 void ResizeCanvasForDPI() {
     double cssWidth = 0.0, cssHeight = 0.0;
     emscripten_get_element_css_size("#canvas", &cssWidth, &cssHeight);
     double dpr = emscripten_get_device_pixel_ratio();
     int fbWidth  = std::max((int)std::round(cssWidth * dpr), 1);
     int fbHeight = std::max((int)std::round(cssHeight * dpr), 1);
+    if (fbWidth == framebufferWidth && fbHeight == framebufferHeight) return;
     emscripten_set_canvas_element_size("#canvas", fbWidth, fbHeight);
     framebufferWidth  = fbWidth;
     framebufferHeight = fbHeight;
@@ -3800,6 +3811,9 @@ void renderHUD() {
 }
 
 void mainLoopIteration() {
+#if defined(__EMSCRIPTEN__)
+    ResizeCanvasForDPI();
+#endif
     double currentTime = glfwGetTime();
     float dt = static_cast<float>(currentTime - previousTime);
     previousTime = currentTime;
