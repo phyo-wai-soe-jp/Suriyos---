@@ -3092,30 +3092,105 @@ void renderHUD() {
         ImVec2 sp = worldToScreen(selObj.pos, vp);
 
         if (sp.x > -9000.f) {
-            constexpr float IBW = 66.f, BH = 54.f, GAP = 6.f, PAD = 8.f;
+            constexpr float IBW = 40.f, BH = 40.f, GAP = 4.f, PAD = 6.f;
             constexpr float TBW = IBW*3.f + GAP*2.f + PAD*2.f;
-            constexpr float TBH = BH + 10.f + 30.f + PAD*2.f; // estimated toolbar height
+            constexpr float DELW = 30.f, DELH = 26.f;
+            constexpr float TBH = BH + 6.f + 1.f + 6.f + DELH + PAD*2.f; // estimated toolbar height
 
-            // World-space bounding radius → screen-space radius
+            struct HudRect {
+                float x0 =  1.0e9f, y0 =  1.0e9f;
+                float x1 = -1.0e9f, y1 = -1.0e9f;
+                bool valid = false;
+            };
+            auto includeScreenPoint = [](HudRect& r, ImVec2 p) {
+                if (p.x <= -9000.f || p.y <= -9000.f) return;
+                r.x0 = std::min(r.x0, p.x);
+                r.y0 = std::min(r.y0, p.y);
+                r.x1 = std::max(r.x1, p.x);
+                r.y1 = std::max(r.y1, p.y);
+                r.valid = true;
+            };
+            auto inflateRect = [](HudRect& r, float amount) {
+                if (!r.valid) return;
+                r.x0 -= amount; r.y0 -= amount;
+                r.x1 += amount; r.y1 += amount;
+            };
+
+            // Screen-space keep-out zone for the selected object and transform
+            // gizmo. The toolbar is placed outside this rectangle so it does not
+            // cover the object, translation arrows, scale handles, or rotate rings.
+            HudRect keepOut;
             float worldR = selObj.r * std::max({selObj.sx, selObj.sy, selObj.sz});
-            ImVec2 spEdge = worldToScreen(
-                {selObj.pos.x + worldR, selObj.pos.y, selObj.pos.z}, vp);
-            float screenR = (spEdge.x > -9000.f)
-                ? std::abs(spEdge.x - sp.x) : worldR * 40.f;
-            screenR = std::max(screenR, 20.f);
+            const Vec3 axes[3] = {{1,0,0},{0,1,0},{0,0,1}};
+            includeScreenPoint(keepOut, sp);
+            for (int ax = 0; ax < 3; ++ax) {
+                includeScreenPoint(keepOut, worldToScreen(selObj.pos + axes[ax]*worldR, vp));
+                includeScreenPoint(keepOut, worldToScreen(selObj.pos - axes[ax]*worldR, vp));
+            }
+            float gLen = cameraDistance * 0.10f;
+            if (gGizmoMode == GizmoMode::Rotate) {
+                constexpr int RING_SAMPLES = 32;
+                for (int ax = 0; ax < 3; ++ax) {
+                    for (int k = 0; k < RING_SAMPLES; ++k) {
+                        float a = 2.f*pi*(float)k/(float)RING_SAMPLES;
+                        Vec3 pt;
+                        if (ax == 0)      pt = {selObj.pos.x, selObj.pos.y + std::cos(a)*gLen, selObj.pos.z + std::sin(a)*gLen};
+                        else if (ax == 1) pt = {selObj.pos.x + std::cos(a)*gLen, selObj.pos.y, selObj.pos.z + std::sin(a)*gLen};
+                        else              pt = {selObj.pos.x + std::cos(a)*gLen, selObj.pos.y + std::sin(a)*gLen, selObj.pos.z};
+                        includeScreenPoint(keepOut, worldToScreen(pt, vp));
+                    }
+                }
+            } else {
+                float headSz = gLen * 0.13f;
+                for (int ax = 0; ax < 3; ++ax) {
+                    Vec3 tip = selObj.pos + axes[ax]*gLen;
+                    includeScreenPoint(keepOut, worldToScreen(tip, vp));
+                    includeScreenPoint(keepOut, worldToScreen(tip + axes[ax]*headSz, vp));
+                    includeScreenPoint(keepOut, worldToScreen(tip - axes[ax]*(headSz*2.f), vp));
+                }
+            }
+            inflateRect(keepOut, 18.f);
+            if (!keepOut.valid)
+                keepOut = {sp.x - 20.f, sp.y - 20.f, sp.x + 20.f, sp.y + 20.f, true};
 
             ImVec2 disp = ImGui::GetIO().DisplaySize;
             constexpr float MARGIN = 14.f;
-            // Place toolbar centred above the object; fall back to below if near top
-            float tx = sp.x - TBW * 0.5f;
-            float ty = sp.y - screenR - TBH - MARGIN;
-            if (ty < 4.f) ty = sp.y + screenR + MARGIN;
-            tx = std::max(tx, 4.f);
-            tx = std::min(tx, disp.x - TBW - 4.f);
-            ty = std::max(ty, 4.f);
-            ty = std::min(ty, disp.y - TBH - 4.f);
+            auto overlapArea = [](HudRect a, HudRect b) {
+                float w = std::max(0.f, std::min(a.x1, b.x1) - std::max(a.x0, b.x0));
+                float h = std::max(0.f, std::min(a.y1, b.y1) - std::max(a.y0, b.y0));
+                return w * h;
+            };
+            auto clampedRectAt = [&](float desiredX, float desiredY) {
+                float maxX = std::max(4.f, disp.x - TBW - 4.f);
+                float maxY = std::max(4.f, disp.y - TBH - 4.f);
+                float x = std::clamp(desiredX, 4.f, maxX);
+                float y = std::clamp(desiredY, 4.f, maxY);
+                return HudRect{x, y, x + TBW, y + TBH, true};
+            };
+            struct Candidate { float x, y, preference; };
+            Candidate candidates[] = {
+                {sp.x - TBW*0.5f, keepOut.y0 - TBH - MARGIN, 0.f},
+                {sp.x - TBW*0.5f, keepOut.y1 + MARGIN,       1.f},
+                {keepOut.x1 + MARGIN, sp.y - TBH*0.5f,       2.f},
+                {keepOut.x0 - TBW - MARGIN, sp.y - TBH*0.5f, 3.f},
+                {keepOut.x1 + MARGIN, keepOut.y0 - TBH,      4.f},
+                {keepOut.x0 - TBW - MARGIN, keepOut.y0 - TBH,5.f},
+                {keepOut.x1 + MARGIN, keepOut.y1,            6.f},
+                {keepOut.x0 - TBW - MARGIN, keepOut.y1,      7.f},
+            };
+            HudRect bestRect = clampedRectAt(candidates[0].x, candidates[0].y);
+            float bestScore = 1.0e30f;
+            for (const Candidate& c : candidates) {
+                HudRect r = clampedRectAt(c.x, c.y);
+                float clampPenalty = std::abs(r.x0 - c.x) + std::abs(r.y0 - c.y);
+                float score = overlapArea(r, keepOut) * 10000.f + clampPenalty * 2.f + c.preference;
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestRect = r;
+                }
+            }
 
-            ImGui::SetNextWindowPos(ImVec2(tx, ty), ImGuiCond_Always);
+            ImGui::SetNextWindowPos(ImVec2(bestRect.x0, bestRect.y0), ImGuiCond_Always);
             ImGui::SetNextWindowSize(ImVec2(TBW, 0.f), ImGuiCond_Always);
             ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.07f,0.08f,0.12f,0.88f));
             ImGui::PushStyleColor(ImGuiCol_Border,   ImVec4(1.00f,1.00f,1.00f,0.16f));
@@ -3128,15 +3203,13 @@ void renderHUD() {
 
             struct ModeInfo {
                 GizmoMode mode; ImVec4 colOn;
-                const char* tip;   const char* tipJA;
-                const char* label; const char* labelJA;
+                const char* tip; const char* tipJA;
             };
             static const ModeInfo modes[] = {
-                { GizmoMode::Translate, {0.18f,0.45f,0.88f,1.f}, "Move [W]",   "移動 [W]",    "Move",   "移動"   },
-                { GizmoMode::Rotate,    {0.10f,0.58f,0.20f,1.f}, "Rotate [E]", "回転 [E]",    "Rotate", "回転"   },
-                { GizmoMode::Scale,     {0.78f,0.45f,0.08f,1.f}, "Scale [T]",  "拡大縮小[T]", "Scale",  "拡大縮小"},
+                { GizmoMode::Translate, {0.18f,0.45f,0.88f,1.f}, "Move [W]",   "移動 [W]"   },
+                { GizmoMode::Rotate,    {0.10f,0.58f,0.20f,1.f}, "Rotate [E]", "回転 [E]"   },
+                { GizmoMode::Scale,     {0.78f,0.45f,0.08f,1.f}, "Scale [T]",  "拡大縮小[T]"},
             };
-            constexpr float LABEL_H = 18.f;
 
             for (int i = 0; i < 3; ++i) {
                 bool sel = (gGizmoMode == modes[i].mode);
@@ -3168,9 +3241,9 @@ void renderHUD() {
                         toU32(alphaOf(colOn, 0.9f)), r, 0, 1.5f);
                 }
 
-                ImVec2 bc = {bpos.x + IBW*0.5f, bpos.y + (BH - LABEL_H)*0.5f};
+                ImVec2 bc = {bpos.x + IBW*0.5f, bpos.y + BH*0.5f};
                 ImU32 ic = IM_COL32(255,255,255, sel ? 255 : 190);
-                constexpr float S = 9.5f, A = 4.6f;
+                constexpr float S = 7.5f, A = 3.8f;
 
                 if (i == 0) {
                     dl->AddLine({bc.x,bc.y},{bc.x+S,bc.y},ic,1.5f);
@@ -3200,11 +3273,6 @@ void renderHUD() {
                     dl->AddLine({bc.x,bc.y-5.5f},{bc.x,bc.y+5.5f},ic,1.8f);
                 }
 
-                const char* label = (gLang==Lang::JA) ? modes[i].labelJA : modes[i].label;
-                ImVec2 ts = ImGui::CalcTextSize(label);
-                dl->AddText({bpos.x + (IBW - ts.x)*0.5f, bpos.y + BH - LABEL_H - 2.f},
-                    IM_COL32(255,255,255, sel ? 235 : 165), label);
-
                 if (i < 2) ImGui::SameLine(0.f, GAP);
             }
 
@@ -3212,15 +3280,45 @@ void renderHUD() {
             ImGui::Separator();
             ImGui::Dummy(ImVec2(0.f, 2.f));
 
-            ImGui::TextColored(alphaOf(themeAccent(), 0.92f),
-                "\xe2\x97\x86 %s", selObj.label);
-            ImGui::SameLine(TBW - PAD*2.f - 84.f);
+            float labelW = std::max(24.f, TBW - PAD*2.f - DELW - GAP);
+            ImVec2 labelPos = ImGui::GetCursorScreenPos();
+            ImGui::InvisibleButton("##objlabel", ImVec2(labelW, DELH));
+            {
+                ImDrawList* rowDl = ImGui::GetWindowDrawList();
+                ImU32 nameCol = toU32(alphaOf(themeAccent(), 0.92f));
+                float textY = labelPos.y + (DELH - ImGui::GetTextLineHeight()) * 0.5f;
+                const char* diamond = "\xe2\x97\x86 ";
+                ImVec2 diamondSz = ImGui::CalcTextSize(diamond);
+                rowDl->PushClipRect(labelPos, {labelPos.x + labelW, labelPos.y + DELH}, true);
+                rowDl->AddText({labelPos.x, textY}, nameCol, diamond);
+                rowDl->AddText({labelPos.x + diamondSz.x, textY}, nameCol, selObj.label);
+                rowDl->PopClipRect();
+            }
+            ImGui::SameLine(0.f, GAP);
             ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.86f,0.20f,0.17f,0.85f));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.96f,0.30f,0.26f,0.95f));
             ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.76f,0.15f,0.13f,1.00f));
-            if (ButtonT("Delete","削除", ImVec2(84.f, 26.f)))
+            ImVec2 delPos = ImGui::GetCursorScreenPos();
+            if (ImGui::Button("##del", ImVec2(DELW, DELH)))
                 removeSceneObject(gSelectedObjIdx);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("%s", T("Delete", "削除"));
             ImGui::PopStyleColor(3);
+            {
+                // Minimal trash-can glyph: lid + handle + tapered body with
+                // two shred lines, matching the mode icons' drawing style.
+                ImDrawList* dl2 = ImGui::GetWindowDrawList();
+                ImVec2 dc = {delPos.x + DELW*0.5f, delPos.y + DELH*0.5f + 1.f};
+                ImU32 dic = IM_COL32(255,255,255,235);
+                float dw = 6.5f, dh = 6.0f;
+                dl2->AddLine({dc.x-dw-1.f, dc.y-dh}, {dc.x+dw+1.f, dc.y-dh}, dic, 1.4f);
+                dl2->AddLine({dc.x-2.5f, dc.y-dh-2.5f}, {dc.x+2.5f, dc.y-dh-2.5f}, dic, 1.4f);
+                dl2->AddLine({dc.x-dw+0.5f, dc.y-dh}, {dc.x-dw+1.7f, dc.y+dh}, dic, 1.2f);
+                dl2->AddLine({dc.x+dw-0.5f, dc.y-dh}, {dc.x+dw-1.7f, dc.y+dh}, dic, 1.2f);
+                dl2->AddLine({dc.x-dw+1.7f, dc.y+dh}, {dc.x+dw-1.7f, dc.y+dh}, dic, 1.2f);
+                dl2->AddLine({dc.x-2.2f, dc.y-dh+2.f}, {dc.x-1.8f, dc.y+dh-1.5f}, dic, 1.0f);
+                dl2->AddLine({dc.x+2.2f, dc.y-dh+2.f}, {dc.x+1.8f, dc.y+dh-1.5f}, dic, 1.0f);
+            }
 
             ImGui::End();
             ImGui::PopStyleVar(2);
