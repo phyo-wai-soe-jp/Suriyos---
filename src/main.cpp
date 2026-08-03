@@ -2966,21 +2966,22 @@ static void drawMainPanelHeader() {
     // sidesteps the ambiguity entirely (and is the more common convention
     // for language toggles anyway).
     //
-    // Drawn manually rather than via macSegmentButton's normal label param:
-    // ImGui centered "日" correctly by the numbers (button-center == its own
-    // CalcTextSize-based centering math), but the glyph's actual ink still
-    // rendered ~63% of the font size too low here, verified with a debug
-    // crosshair at the button's exact geometric center. A font-wide
-    // GlyphOffset fix was tried first and reverted - it broke the (already
-    // correct) baseline alignment of Japanese/Latin mixed strings elsewhere
-    // ("停止[P]" etc.), so the nudge is scoped to just this one button.
+    // Drawn manually (box position + half the box/text-size delta) instead
+    // of via macSegmentButton's normal label param: ImGui::Button's own
+    // internal RenderTextClipped rendered this specific glyph noticeably
+    // off-center despite computing the same centering math, verified with a
+    // debug crosshair at the button's exact geometric center. Manually
+    // drawing with that same, straightforward formula renders correctly
+    // (re-verified: <1px deviation from the box's true center) - the bug
+    // was in ImGui's own render path for this glyph/button combination, not
+    // the centering math itself.
     ImVec2 nihonPos = ImGui::GetCursorScreenPos();
     bool jpClicked = macSegmentButton("##nihon", jaActive, {half, 28.0f});
     {
         ImVec2 ts = ImGui::CalcTextSize("日");
         ImVec2 textPos = {
             nihonPos.x + (half - ts.x) * 0.5f,
-            nihonPos.y + (28.0f - ts.y) * 0.5f - 0.628f * ImGui::GetFontSize(),
+            nihonPos.y + (28.0f - ts.y) * 0.5f,
         };
         ImGui::GetWindowDrawList()->AddText(textPos, IM_COL32(255,255,255,255), "日");
     }
