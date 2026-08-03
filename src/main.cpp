@@ -2965,7 +2965,25 @@ static void drawMainPanelHeader() {
     // hook is clearly present. Showing the target language's own script
     // sidesteps the ambiguity entirely (and is the more common convention
     // for language toggles anyway).
-    bool jpClicked = macSegmentButton("日", jaActive, {half, 28.0f});
+    //
+    // Drawn manually rather than via macSegmentButton's normal label param:
+    // ImGui centered "日" correctly by the numbers (button-center == its own
+    // CalcTextSize-based centering math), but the glyph's actual ink still
+    // rendered ~63% of the font size too low here, verified with a debug
+    // crosshair at the button's exact geometric center. A font-wide
+    // GlyphOffset fix was tried first and reverted - it broke the (already
+    // correct) baseline alignment of Japanese/Latin mixed strings elsewhere
+    // ("停止[P]" etc.), so the nudge is scoped to just this one button.
+    ImVec2 nihonPos = ImGui::GetCursorScreenPos();
+    bool jpClicked = macSegmentButton("##nihon", jaActive, {half, 28.0f});
+    {
+        ImVec2 ts = ImGui::CalcTextSize("日");
+        ImVec2 textPos = {
+            nihonPos.x + (half - ts.x) * 0.5f,
+            nihonPos.y + (28.0f - ts.y) * 0.5f - 0.628f * ImGui::GetFontSize(),
+        };
+        ImGui::GetWindowDrawList()->AddText(textPos, IM_COL32(255,255,255,255), "日");
+    }
     ImGui::SameLine(0.0f, 4.0f);
     bool enClicked = macSegmentButton("EN", !jaActive, {half, 28.0f});
     if (jpClicked && !jaActive) gLang = Lang::JA;
