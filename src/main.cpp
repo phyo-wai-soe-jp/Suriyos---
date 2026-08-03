@@ -2956,25 +2956,32 @@ static void drawMainPanelHeader() {
     ImGui::SetCursorScreenPos({p.x + 16.0f, p.y + 100.0f});
 }
 
+#if defined(__EMSCRIPTEN__)
+// Dear ImGui's standard high-DPI model: DisplaySize in CSS/logical units,
+// DisplayFramebufferScale carrying the device pixel ratio. Must run after
+// ImGui_ImplGlfw_NewFrame(), since that's what writes io.DisplaySize in the
+// first place.
+static void ApplyWebDisplayMetrics() {
+    double cssWidth = 0, cssHeight = 0;
+    int canvasPixelWidth = 0, canvasPixelHeight = 0;
+    emscripten_get_element_css_size("#canvas", &cssWidth, &cssHeight);
+    emscripten_get_canvas_element_size("#canvas", &canvasPixelWidth, &canvasPixelHeight);
+
+    if (cssWidth <= 0.0 || cssHeight <= 0.0) return;
+
+    ImGuiIO& io = ImGui::GetIO();
+    io.DisplaySize = ImVec2((float)cssWidth, (float)cssHeight);
+    io.DisplayFramebufferScale = ImVec2(
+        (float)(canvasPixelWidth  / cssWidth),
+        (float)(canvasPixelHeight / cssHeight));
+}
+#endif
+
 void renderHUD() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
 #if defined(__EMSCRIPTEN__)
-    // Every SetNextWindowPos/SetNextWindowSize call in this file positions
-    // things directly in framebufferWidth/framebufferHeight units (e.g. the
-    // main panel is sized to framebufferHeight - 24) — the whole UI is
-    // written assuming that IS the coordinate space ImGui lays windows out
-    // in. But ImGui_ImplGlfw_NewFrame() just set io.DisplaySize from GLFW's
-    // own internal "window size" (still the literal 900x700 passed to
-    // glfwCreateWindow — ResizeCanvasForDPI resizes the canvas element
-    // directly and never touches that), so ImGui was positioning windows
-    // against a 900x700 canvas that no longer has anything to do with the
-    // real one, at the wrong aspect ratio — which is what pushed the panel
-    // into the bottom-left instead of filling the left side top-to-bottom.
-    // Overriding it to match framebufferWidth/Height keeps every existing
-    // SetNextWindowPos/Size call correct without having to touch each one.
-    ImGui::GetIO().DisplaySize = ImVec2((float)framebufferWidth, (float)framebufferHeight);
-    ImGui::GetIO().DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+    ApplyWebDisplayMetrics();
 #endif
     ImGui::NewFrame();
 
@@ -3883,6 +3890,12 @@ int main() {
     // ImGui — Retina-aware + 3D style
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+#if defined(__EMSCRIPTEN__)
+    // Rule out stale saved window state as a factor while diagnosing the
+    // panel-position bug — every window here already passes
+    // ImGuiWindowFlags_NoSavedSettings, but this removes any doubt.
+    ImGui::GetIO().IniFilename = nullptr;
+#endif
 
     // Query display content scale (2.0 on Retina, 1.0 on standard).
 #if defined(__EMSCRIPTEN__)

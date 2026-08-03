@@ -13,7 +13,9 @@ IMGUI="third_party/imgui"
 OUT="web-build"
 mkdir -p "$OUT"
 
-emcc -std=c++17 -O2 -DNDEBUG \
+BUILD_ID="$(git rev-parse --short HEAD 2>/dev/null || echo dev)-$(date +%H%M%S)"
+
+emcc -std=c++17 -O2 -DNDEBUG -DSURIYOS_BUILD_ID="\"$BUILD_ID\"" \
   -I"$IMGUI" -I"$IMGUI/backends" -I"$BULLET_SRC" \
   src/main.cpp \
   "$IMGUI/imgui.cpp" "$IMGUI/imgui_draw.cpp" "$IMGUI/imgui_tables.cpp" "$IMGUI/imgui_widgets.cpp" \
