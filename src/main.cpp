@@ -2910,21 +2910,6 @@ static void drawMacPanelSurface() {
     dl->AddRect(p, q, IM_COL32(255,255,255,22), r, 0, 1.0f);
 }
 
-static void drawMacTrafficLights(ImDrawList* dl, ImVec2 p) {
-    const ImU32 red    = IM_COL32(255, 95, 87, 255);
-    const ImU32 yellow = IM_COL32(255, 189, 46, 255);
-    const ImU32 green  = IM_COL32(40, 201, 64, 255);
-    const float rad = 5.5f;
-
-    for (int i = 0; i < 3; ++i) {
-        float cx = p.x + i * 16.0f;
-        dl->AddCircleFilled({cx, p.y + 1.0f}, rad, IM_COL32(0,0,0,35), 16);
-    }
-    dl->AddCircleFilled({p.x, p.y}, rad, red, 16);
-    dl->AddCircleFilled({p.x + 16.0f, p.y}, rad, yellow, 16);
-    dl->AddCircleFilled({p.x + 32.0f, p.y}, rad, green, 16);
-}
-
 static void drawMainPanelHeader() {
     drawMacPanelSurface();
 
@@ -2932,11 +2917,9 @@ static void drawMainPanelHeader() {
     ImVec2 p = ImGui::GetWindowPos();
     ImVec2 s = ImGui::GetWindowSize();
 
-    drawMacTrafficLights(dl, {p.x + 20.0f, p.y + 22.0f});
-
-    dl->AddText({p.x + 72.0f, p.y + 14.0f}, IM_COL32(245,247,252,255),
+    dl->AddText({p.x + 16.0f, p.y + 14.0f}, IM_COL32(245,247,252,255),
         T("Physics Experiment", "物理実験"));
-    dl->AddText({p.x + 72.0f, p.y + 34.0f}, IM_COL32(148,154,168,220),
+    dl->AddText({p.x + 16.0f, p.y + 34.0f}, IM_COL32(148,154,168,220),
         T("3D impact laboratory", "3D 衝突実験ラボ"));
 
     char fpsText[32];
@@ -3008,9 +2991,9 @@ void renderHUD() {
         ImVec2 sp = worldToScreen(selObj.pos, vp);
 
         if (sp.x > -9000.f) {
-            constexpr float IBW = 46.f, BH = 36.f, GAP = 4.f, PAD = 5.f;
+            constexpr float IBW = 66.f, BH = 54.f, GAP = 6.f, PAD = 8.f;
             constexpr float TBW = IBW*3.f + GAP*2.f + PAD*2.f;
-            constexpr float TBH = BH + 4.f + 20.f + PAD*2.f; // estimated toolbar height
+            constexpr float TBH = BH + 10.f + 30.f + PAD*2.f; // estimated toolbar height
 
             // World-space bounding radius → screen-space radius
             float worldR = selObj.r * std::max({selObj.sx, selObj.sy, selObj.sz});
@@ -3042,23 +3025,29 @@ void renderHUD() {
                 ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
                 ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing);
 
-            struct ModeInfo { GizmoMode mode; ImVec4 colOn; const char* tip; const char* tipJA; };
-            static const ModeInfo modes[] = {
-                { GizmoMode::Translate, {0.18f,0.45f,0.88f,1.f}, "Move [W]",   "移動 [W]"   },
-                { GizmoMode::Rotate,    {0.10f,0.58f,0.20f,1.f}, "Rotate [E]", "回転 [E]"   },
-                { GizmoMode::Scale,     {0.78f,0.45f,0.08f,1.f}, "Scale [T]",  "拡大縮小[T]"},
+            struct ModeInfo {
+                GizmoMode mode; ImVec4 colOn;
+                const char* tip;   const char* tipJA;
+                const char* label; const char* labelJA;
             };
+            static const ModeInfo modes[] = {
+                { GizmoMode::Translate, {0.18f,0.45f,0.88f,1.f}, "Move [W]",   "移動 [W]",    "Move",   "移動"   },
+                { GizmoMode::Rotate,    {0.10f,0.58f,0.20f,1.f}, "Rotate [E]", "回転 [E]",    "Rotate", "回転"   },
+                { GizmoMode::Scale,     {0.78f,0.45f,0.08f,1.f}, "Scale [T]",  "拡大縮小[T]", "Scale",  "拡大縮小"},
+            };
+            constexpr float LABEL_H = 18.f;
 
             for (int i = 0; i < 3; ++i) {
                 bool sel = (gGizmoMode == modes[i].mode);
                 ImVec4 colOn  = modes[i].colOn;
-                ImVec4 colOff = {0.16f,0.17f,0.22f,0.90f};
+                ImVec4 colOff = {0.18f,0.19f,0.25f,0.90f};
                 ImGui::PushStyleColor(ImGuiCol_Button,
-                    sel ? colOn : colOff);
+                    sel ? ImVec4(colOn.x,colOn.y,colOn.z,0.30f) : colOff);
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
-                    sel ? ImVec4(colOn.x*1.1f,colOn.y*1.1f,colOn.z*1.1f,1.f)
-                        : ImVec4(0.30f,0.31f,0.36f,1.f));
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, colOn);
+                    sel ? ImVec4(colOn.x,colOn.y,colOn.z,0.42f)
+                        : ImVec4(0.32f,0.33f,0.39f,1.f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive,
+                    ImVec4(colOn.x,colOn.y,colOn.z,0.55f));
                 ImVec2 bpos = ImGui::GetCursorScreenPos();
                 ImGui::PushID(i);
                 if (ImGui::Button("##gm", ImVec2(IBW, BH))) gGizmoMode = modes[i].mode;
@@ -3068,9 +3057,19 @@ void renderHUD() {
                 ImGui::PopStyleColor(3);
 
                 ImDrawList* dl = ImGui::GetWindowDrawList();
-                ImVec2 bc = {bpos.x + IBW*0.5f, bpos.y + BH*0.5f};
-                ImU32 ic = IM_COL32(255,255,255, sel ? 255 : 195);
-                constexpr float S = 8.5f, A = 4.2f;
+                float r = ImGui::GetStyle().FrameRounding;
+                if (sel) {
+                    // Bright top accent bar makes the active mode obvious at a glance,
+                    // without needing to compare subtle fill-color differences.
+                    dl->AddRectFilled({bpos.x, bpos.y}, {bpos.x + IBW, bpos.y + 3.f},
+                        toU32(colOn), r);
+                    dl->AddRect({bpos.x, bpos.y}, {bpos.x + IBW, bpos.y + BH},
+                        toU32(alphaOf(colOn, 0.9f)), r, 0, 1.5f);
+                }
+
+                ImVec2 bc = {bpos.x + IBW*0.5f, bpos.y + (BH - LABEL_H)*0.5f};
+                ImU32 ic = IM_COL32(255,255,255, sel ? 255 : 190);
+                constexpr float S = 9.5f, A = 4.6f;
 
                 if (i == 0) {
                     dl->AddLine({bc.x,bc.y},{bc.x+S,bc.y},ic,1.5f);
@@ -3100,17 +3099,27 @@ void renderHUD() {
                     dl->AddLine({bc.x,bc.y-5.5f},{bc.x,bc.y+5.5f},ic,1.8f);
                 }
 
+                const char* label = (gLang==Lang::JA) ? modes[i].labelJA : modes[i].label;
+                ImVec2 ts = ImGui::CalcTextSize(label);
+                dl->AddText({bpos.x + (IBW - ts.x)*0.5f, bpos.y + BH - LABEL_H - 2.f},
+                    IM_COL32(255,255,255, sel ? 235 : 165), label);
+
                 if (i < 2) ImGui::SameLine(0.f, GAP);
             }
 
+            ImGui::Dummy(ImVec2(0.f, 6.f));
             ImGui::Separator();
+            ImGui::Dummy(ImVec2(0.f, 2.f));
+
             ImGui::TextColored(alphaOf(themeAccent(), 0.92f),
                 "\xe2\x97\x86 %s", selObj.label);
-            ImGui::SameLine();
-            ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(1.0f,0.23f,0.19f,0.78f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f,0.34f,0.30f,0.90f));
-            if (ImGui::SmallButton(T("Delete","削除"))) removeSceneObject(gSelectedObjIdx);
-            ImGui::PopStyleColor(2);
+            ImGui::SameLine(TBW - PAD*2.f - 84.f);
+            ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.86f,0.20f,0.17f,0.85f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.96f,0.30f,0.26f,0.95f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.76f,0.15f,0.13f,1.00f));
+            if (ImGui::Button(T("Delete","削除"), ImVec2(84.f, 26.f)))
+                removeSceneObject(gSelectedObjIdx);
+            ImGui::PopStyleColor(3);
 
             ImGui::End();
             ImGui::PopStyleVar(2);
