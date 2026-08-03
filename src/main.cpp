@@ -2076,14 +2076,19 @@ static Mat4 getViewProjection() {
 }
 
 // World position → window (screen) pixel.  Returns {-99999,…} if behind camera.
-// Uses window size (logical pixels) so it matches glfwGetCursorPos on Retina displays.
+// Uses io.DisplaySize rather than glfwGetWindowSize(): on the web build the
+// canvas is resized directly (ResizeCanvasForDPI), which never updates
+// GLFW's own internally tracked window size, so glfwGetWindowSize() goes
+// stale while io.DisplaySize (and thus ImGui's mouse hit-testing) stays
+// correct. Using the same source as ImGui keeps screen-space math and
+// on-screen rendering/clicking in agreement on both platforms.
 static ImVec2 worldToScreen(Vec3 p, const Mat4& vp) {
     float x=vp.m[0]*p.x+vp.m[4]*p.y+vp.m[8]*p.z +vp.m[12];
     float y=vp.m[1]*p.x+vp.m[5]*p.y+vp.m[9]*p.z +vp.m[13];
     float w=vp.m[3]*p.x+vp.m[7]*p.y+vp.m[11]*p.z+vp.m[15];
     if (w<0.001f) return {-99999,-99999};
-    int winW, winH; glfwGetWindowSize(gWindow, &winW, &winH);
-    return {(x/w+1.f)*0.5f*(float)winW, (1.f-y/w)*0.5f*(float)winH};
+    ImVec2 disp = ImGui::GetIO().DisplaySize;
+    return {(x/w+1.f)*0.5f*disp.x, (1.f-y/w)*0.5f*disp.y};
 }
 
 static float distToSeg2D(ImVec2 p, ImVec2 a, ImVec2 b) {
@@ -2096,15 +2101,14 @@ static float distToSeg2D(ImVec2 p, ImVec2 a, ImVec2 b) {
 
 struct CamRay { Vec3 origin, dir; };
 static CamRay screenRay(double mx, double my) {
-    int winW, winH;
-    glfwGetWindowSize(gWindow, &winW, &winH);
-    float ndcX=(float)(2.0*mx/winW-1.0);
-    float ndcY=(float)(1.0-2.0*my/winH);
+    ImVec2 disp = ImGui::GetIO().DisplaySize;
+    float ndcX=(float)(2.0*mx/disp.x-1.0);
+    float ndcY=(float)(1.0-2.0*my/disp.y);
     Vec3  eye=getCameraEye();
     Vec3  fwd=normalize({-eye.x,-eye.y,-eye.z});
     Vec3  right=normalize(cross(fwd,{0,1,0}));
     Vec3  up=cross(right,fwd);
-    float aspect=(float)winW/winH;
+    float aspect=disp.x/disp.y;
     float tanH=std::tan(45.f*pi/180.f*0.5f);
     return {eye, normalize(fwd+right*(ndcX*aspect*tanH)+up*(ndcY*tanH))};
 }
@@ -2461,9 +2465,12 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     if (button != GLFW_MOUSE_BUTTON_LEFT) return;
 
     if (action == GLFW_PRESS) {
-        double mx, my;
-        glfwGetCursorPos(window, &mx, &my);
-        lastMouseX = mx; lastMouseY = my;
+        // Use the position from the most recent cursorCallback rather than a
+        // fresh glfwGetCursorPos(): on the web build, GLFW's own cursor-pos
+        // tracking is in its stale internal window-size space (see
+        // ApplyWebDisplayMetrics), whereas lastMouseX/Y is fed by the raw,
+        // correctly-scaled coordinates from our own mouse/touch callbacks.
+        double mx = lastMouseX, my = lastMouseY;
 
         // Priority: gizmo handle → object pick → camera orbit
         int gAxis = pickGizmoAxis(mx, my);
@@ -2949,9 +2956,11 @@ static void drawMainPanelHeader() {
     ImGui::SetCursorScreenPos({p.x + s.x - segW - 16.0f, p.y + 18.0f});
     bool jaActive = (gLang == Lang::JA);
     float half = (segW - 4.0f) * 0.5f;
-    if (macSegmentButton("JP", jaActive, {half, 28.0f}) && !jaActive) gLang = Lang::JA;
+    bool jpClicked = macSegmentButton("JP", jaActive, {half, 28.0f});
     ImGui::SameLine(0.0f, 4.0f);
-    if (macSegmentButton("EN", !jaActive, {half, 28.0f}) && jaActive) gLang = Lang::EN;
+    bool enClicked = macSegmentButton("EN", !jaActive, {half, 28.0f});
+    if (jpClicked && !jaActive) gLang = Lang::JA;
+    if (enClicked && jaActive) gLang = Lang::EN;
 
     ImGui::SetCursorScreenPos({p.x + 16.0f, p.y + 100.0f});
 }
@@ -3011,16 +3020,16 @@ void renderHUD() {
                 ? std::abs(spEdge.x - sp.x) : worldR * 40.f;
             screenR = std::max(screenR, 20.f);
 
-            int winW, winH; glfwGetWindowSize(gWindow, &winW, &winH);
+            ImVec2 disp = ImGui::GetIO().DisplaySize;
             constexpr float MARGIN = 14.f;
             // Place toolbar centred above the object; fall back to below if near top
             float tx = sp.x - TBW * 0.5f;
             float ty = sp.y - screenR - TBH - MARGIN;
             if (ty < 4.f) ty = sp.y + screenR + MARGIN;
             tx = std::max(tx, 4.f);
-            tx = std::min(tx, (float)winW - TBW - 4.f);
+            tx = std::min(tx, disp.x - TBW - 4.f);
             ty = std::max(ty, 4.f);
-            ty = std::min(ty, (float)winH - TBH - 4.f);
+            ty = std::min(ty, disp.y - TBH - 4.f);
 
             ImGui::SetNextWindowPos(ImVec2(tx, ty), ImGuiCond_Always);
             ImGui::SetNextWindowSize(ImVec2(TBW, 0.f), ImGuiCond_Always);
@@ -3873,7 +3882,9 @@ int main() {
 #endif
     glfwSetKeyCallback(window, keyCallback);
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
+#if !defined(__EMSCRIPTEN__)
     glfwSetCursorPosCallback(window, cursorCallback);
+#endif
     glfwSetScrollCallback(window, scrollCallback);
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
@@ -3984,6 +3995,15 @@ int main() {
 
     ImGui_ImplGlfw_InitForOpenGL(window, false);
 #if defined(__EMSCRIPTEN__)
+    // Without a registered cursor-enter callback, ImGui_ImplGlfw_UpdateMouseData()
+    // treats bd->MouseWindow as never set and, every single frame, overwrites
+    // whatever position our own event-driven callbacks report with a fresh
+    // glfwGetCursorPos() read — which is in GLFW's stale internal window-size
+    // space (see ApplyWebDisplayMetrics), not the live CSS space everything
+    // else here uses. Marking the mouse as having "entered" once sets
+    // bd->MouseWindow and permanently disables that per-frame poll, leaving
+    // our raw mousemove/touch callbacks as the sole source of io.MousePos.
+    ImGui_ImplGlfw_CursorEnterCallback(window, 1);
     ImGui_ImplOpenGL3_Init("#version 300 es");
     // GLFW's Emscripten port doesn't reliably normalize trackpad "smooth
     // scroll" wheel events (DOM_DELTA_PIXEL), so two-finger scrolling either
@@ -3997,6 +4017,22 @@ int main() {
                                                            : 20.0f; // DOM_DELTA_PAGE
             ImGui::GetIO().AddMouseWheelEvent(
                 (float)-e->deltaX * scale, (float)-e->deltaY * scale);
+            return EM_TRUE;
+        });
+
+    // GLFW's Emscripten port has a "CSS scaling" feature that rescales raw
+    // mouse coordinates by (GLFW's internal window size / the canvas's CSS
+    // rect size) before handing them to glfwSetCursorPosCallback. That
+    // internal window size is fixed at whatever glfwCreateWindow was called
+    // with and never updated by ResizeCanvasForDPI's manual canvas resizing,
+    // so on any display where the CSS size differs from that, GLFW reports
+    // mouse positions in the wrong coordinate space — offset from where
+    // ImGui (using the live CSS-based io.DisplaySize) actually draws things.
+    // Reading the raw target-relative coordinates directly, the same way
+    // touch input already does below, sidesteps that scaling entirely.
+    emscripten_set_mousemove_callback("#canvas", nullptr, true,
+        [](int, const EmscriptenMouseEvent* e, void*) -> EM_BOOL {
+            cursorCallback(gWindow, e->targetX, e->targetY);
             return EM_TRUE;
         });
 
