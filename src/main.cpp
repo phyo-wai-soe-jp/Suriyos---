@@ -1472,6 +1472,13 @@ void addSceneObject(int shapeType, int matIdx, float r,
     gSelectedObjIdx = (int)gSceneObjects.size() - 1;
 }
 
+static void pauseForSceneEditing() {
+    gSimPaused = true;
+    gSimStep = false;
+    gGizmoDrag.active = false;
+    dragging = false;
+}
+
 void removeSceneObject(int idx) {
     if (idx < 0 || idx >= (int)gSceneObjects.size()) return;
     // Remove constraints referencing this object first
@@ -2489,6 +2496,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                                  now - gLastClickTime < kDoubleClickSec);
                 gSelectedObjIdx = picked;
                 gGizmoMode      = isDouble ? GizmoMode::Rotate : GizmoMode::Translate;
+                pauseForSceneEditing();
                 gLastClickTime  = now;
                 gLastClickedObj = picked;
             } else {
@@ -3352,6 +3360,7 @@ void renderHUD() {
                     const LibVariant& lv = le.variants[vi];
                     int mat = (lv.matHint>=0) ? lv.matHint : gLibMat;
                     addSceneObject(le.baseShape, mat, gLibSize, lv.sx, lv.sy, lv.sz);
+                    pauseForSceneEditing();
                 }
             }
             ImGui::EndDragDropTarget();
@@ -3773,8 +3782,10 @@ void renderHUD() {
             2*gLibSize*gLibSx, 2*gLibSize*gLibSy, 2*gLibSize*gLibSz,
             lom.rho * shapeVolume(gLibShape, gLibSize, gLibSx, gLibSy, gLibSz));
 
-        if (ButtonT("+ Add to Scene", "+ シーンに追加", ImVec2(-1,0)))
+        if (ButtonT("+ Add to Scene", "+ シーンに追加", ImVec2(-1,0))) {
             addSceneObject(gLibShape, gLibMat, gLibSize, gLibSx, gLibSy, gLibSz);
+            pauseForSceneEditing();
+        }
     } else {
         ImGui::TextDisabled("%s", T("  Click a card to select an object.",
                                     "  カードをクリックしてオブジェクトを選択。"));
@@ -3786,7 +3797,10 @@ void renderHUD() {
     for (int i=0;i<(int)gSceneObjects.size();++i) {
         bool sel=(i==gSelectedObjIdx);
         if (sel) ImGui::PushStyleColor(ImGuiCol_Header, alphaOf(themeAccent(), 0.32f));
-        if (ImGui::Selectable(gSceneObjects[i].label, sel)) gSelectedObjIdx=i;
+        if (ImGui::Selectable(gSceneObjects[i].label, sel)) {
+            gSelectedObjIdx=i;
+            pauseForSceneEditing();
+        }
         if (sel) ImGui::PopStyleColor();
         if (ImGui::IsItemHovered()) {
             const SceneObject& so=gSceneObjects[i];
@@ -3854,8 +3868,10 @@ void renderHUD() {
                 wmass*(rb*rb+rc_*rc_)/5.f, wmass*(ra*ra+rc_*rc_)/5.f, wmass*(ra*ra+rb*rb)/5.f);
             ImGui::Separator();
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.24f,0.68f,0.40f,0.86f));
-            if (ButtonT("Spawn into Scene", "シーンに配置", ImVec2(-1,0)))
+            if (ButtonT("Spawn into Scene", "シーンに配置", ImVec2(-1,0))) {
                 addSceneObject(gWsShape, gWsMat, gWsRadius, gWsSx, gWsSy, gWsSz);
+                pauseForSceneEditing();
+            }
             ImGui::PopStyleColor();
             ImGui::EndChild();
             ImGui::EndTabItem();
@@ -4022,8 +4038,10 @@ void renderHUD() {
                 ImGui::TextColored(ImVec4(0.7f,0.9f,0.7f,1.f),"v=%.2f m/s", std::sqrt(dot(obj.vel,obj.vel)));
 
                 ImGui::Separator();
-                if (ButtonT("Clone Object##clone", "複製##clone", ImVec2(-1,0)))
+                if (ButtonT("Clone Object##clone", "複製##clone", ImVec2(-1,0))) {
                     addSceneObject(obj.shapeType, obj.matIdx, obj.r, obj.sx, obj.sy, obj.sz);
+                    pauseForSceneEditing();
+                }
                 if (ButtonT("Delete Object##del", "削除##del", ImVec2(-1,0)))
                     removeSceneObject(gSelectedObjIdx);
             } else {
