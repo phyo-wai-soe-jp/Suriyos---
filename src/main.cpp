@@ -499,6 +499,8 @@ struct GizmoDrag {
     int    axis     = -1;   // 0=X 1=Y 2=Z 3=center
     double startMX  = 0, startMY = 0;
     Vec3   startPos = {};
+    Vec3   startPlaneHit = {};
+    bool   hasStartPlaneHit = false;
     Vec3   startEuler = {};
     float  startSx=1.f, startSy=1.f, startSz=1.f;
 };
@@ -2120,6 +2122,15 @@ static CamRay screenRay(double mx, double my) {
     return {eye, normalize(fwd+right*(ndcX*aspect*tanH)+up*(ndcY*tanH))};
 }
 
+static bool screenRayPlaneY(double mx, double my, float planeY, Vec3& hit) {
+    CamRay r = screenRay(mx, my);
+    if (std::abs(r.dir.y) < 1.0e-4f) return false;
+    float t = (planeY - r.origin.y) / r.dir.y;
+    if (t <= 0.0f) return false;
+    hit = r.origin + r.dir * t;
+    return true;
+}
+
 // Ray-sphere pick against scene objects; returns nearest index or -1
 static int pickSceneObject(double mx, double my) {
     CamRay r=screenRay(mx,my);
@@ -2190,6 +2201,9 @@ static void startGizmoDrag(int axis, double mx, double my) {
     gGizmoDrag.active=true; gGizmoDrag.axis=axis;
     gGizmoDrag.startMX=mx; gGizmoDrag.startMY=my;
     gGizmoDrag.startPos=obj.pos;
+    gGizmoDrag.hasStartPlaneHit =
+        (gGizmoMode == GizmoMode::Translate && axis == 3 &&
+         screenRayPlaneY(mx, my, obj.pos.y, gGizmoDrag.startPlaneHit));
     gGizmoDrag.startEuler=quatToEulerDeg(obj.orient);
     obj.euler=gGizmoDrag.startEuler;
     gGizmoDrag.startSx=obj.sx; gGizmoDrag.startSy=obj.sy; gGizmoDrag.startSz=obj.sz;
@@ -2205,10 +2219,14 @@ static void updateGizmoDrag(double mx, double my) {
     if (gGizmoMode==GizmoMode::Translate) {
         float gLen=cameraDistance*0.10f;
         if (gGizmoDrag.axis==3) {
-            float spd=cameraDistance*0.002f;
-            obj.pos={gGizmoDrag.startPos.x+dx*spd,
-                     gGizmoDrag.startPos.y,
-                     gGizmoDrag.startPos.z+dy*spd};
+            Vec3 hit;
+            if (gGizmoDrag.hasStartPlaneHit &&
+                screenRayPlaneY(mx, my, gGizmoDrag.startPos.y, hit)) {
+                Vec3 delta = hit - gGizmoDrag.startPlaneHit;
+                obj.pos = {gGizmoDrag.startPos.x + delta.x,
+                           gGizmoDrag.startPos.y,
+                           gGizmoDrag.startPos.z + delta.z};
+            }
         } else {
             Mat4 vp=getViewProjection();
             ImVec2 sa=worldToScreen(gGizmoDrag.startPos,vp);
