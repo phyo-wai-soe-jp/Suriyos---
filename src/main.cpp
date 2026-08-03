@@ -2882,6 +2882,52 @@ static ImVec4 alphaOf(ImVec4 c, float alpha) {
     return c;
 }
 
+// ImGui::Button's own internal text rendering visibly mispositions labels
+// that are pure Japanese/CJK script with no Latin characters mixed in -
+// confirmed with a debug crosshair at several buttons' exact geometric
+// centers ("日", "削除", "リセット" all rendered noticeably low; mixed
+// strings like "停止[P]" did not). Drop-in replacement for
+// ImGui::Button(T(en, ja), size): on the Japanese side, draws the button
+// with an invisible label (preserving click/hover/style/auto-sizing
+// behavior identically to a real ImGui::Button call) then manually
+// centers the real text via AddText, which measured correct to within
+// 1px. Understands the "##id" suffix convention the same way ImGui does
+// (hidden from both the size measurement and the drawn text). The English
+// side is unaffected by any of this and renders via plain ImGui::Button.
+static bool ButtonT(const char* en, const char* ja, ImVec2 size_arg = ImVec2(0, 0)) {
+    if (gLang != Lang::JA)
+        return ImGui::Button(en, size_arg);
+
+    const char* hash = std::strstr(ja, "##");
+    size_t visLen = hash ? (size_t)(hash - ja) : std::strlen(ja);
+    char visible[64];
+    visLen = std::min(visLen, sizeof(visible) - 1);
+    std::memcpy(visible, ja, visLen);
+    visible[visLen] = '\0';
+
+    ImGuiStyle& style = ImGui::GetStyle();
+    ImVec2 ts = ImGui::CalcTextSize(visible);
+    ImVec2 avail = ImGui::GetContentRegionAvail();
+    float w = size_arg.x, h = size_arg.y;
+    if (w == 0.0f) w = ts.x + style.FramePadding.x * 2.0f;
+    else if (w < 0.0f) w = avail.x + w;
+    if (h == 0.0f) h = ts.y + style.FramePadding.y * 2.0f;
+    else if (h < 0.0f) h = avail.y + h;
+    ImVec2 size(w, h);
+
+    ImVec2 pos = ImGui::GetCursorScreenPos();
+    ImGui::PushID(ja);
+    bool clicked = ImGui::Button("##btnja", size);
+    ImGui::PopID();
+
+    ImVec2 textPos = {
+        pos.x + (size.x - ts.x) * 0.5f,
+        pos.y + (size.y - ts.y) * 0.5f,
+    };
+    ImGui::GetWindowDrawList()->AddText(textPos, ImGui::GetColorU32(ImGuiCol_Text), visible);
+    return clicked;
+}
+
 static bool macSegmentButton(const char* label, bool selected, ImVec2 size) {
     ImVec4 accent = themeAccent();
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
@@ -2978,15 +3024,15 @@ static void drawMainPanelHeader() {
     ImVec2 nihonPos = ImGui::GetCursorScreenPos();
     bool jpClicked = macSegmentButton("##nihon", jaActive, {half, 28.0f});
     {
-        ImVec2 ts = ImGui::CalcTextSize("日");
+        ImVec2 ts = ImGui::CalcTextSize("日本");
         ImVec2 textPos = {
             nihonPos.x + (half - ts.x) * 0.5f,
             nihonPos.y + (28.0f - ts.y) * 0.5f,
         };
-        ImGui::GetWindowDrawList()->AddText(textPos, IM_COL32(255,255,255,255), "日");
+        ImGui::GetWindowDrawList()->AddText(textPos, IM_COL32(255,255,255,255), "日本");
     }
     ImGui::SameLine(0.0f, 4.0f);
-    bool enClicked = macSegmentButton("EN", !jaActive, {half, 28.0f});
+    bool enClicked = macSegmentButton("ENG", !jaActive, {half, 28.0f});
     if (jpClicked && !jaActive) gLang = Lang::JA;
     if (enClicked && jaActive) gLang = Lang::EN;
 
@@ -3162,7 +3208,7 @@ void renderHUD() {
             ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.86f,0.20f,0.17f,0.85f));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.96f,0.30f,0.26f,0.95f));
             ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.76f,0.15f,0.13f,1.00f));
-            if (ImGui::Button(T("Delete","削除"), ImVec2(84.f, 26.f)))
+            if (ButtonT("Delete","削除", ImVec2(84.f, 26.f)))
                 removeSceneObject(gSelectedObjIdx);
             ImGui::PopStyleColor(3);
 
@@ -3326,22 +3372,22 @@ void renderHUD() {
         if (gSimPaused) {
             ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.22f,0.62f,0.38f,0.82f));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.28f,0.70f,0.44f,0.92f));
-            if (ImGui::Button(T("Play [P]", "再生[P]"), ImVec2(bw, SBH))) gSimPaused = false;
+            if (ButtonT("Play [P]", "再生[P]", ImVec2(bw, SBH))) gSimPaused = false;
             ImGui::PopStyleColor(2);
         } else {
             ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.82f,0.52f,0.18f,0.82f));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.92f,0.60f,0.24f,0.92f));
-            if (ImGui::Button(T("Pause [P]", "停止[P]"), ImVec2(bw, SBH))) gSimPaused = true;
+            if (ButtonT("Pause [P]", "停止[P]", ImVec2(bw, SBH))) gSimPaused = true;
             ImGui::PopStyleColor(2);
         }
         ImGui::SameLine(0, 4);
         ImGui::BeginDisabled(!gSimPaused);
-        if (ImGui::Button(T("Step [.]", "ステップ[.]"), ImVec2(bw, SBH))) gSimStep = true;
+        if (ButtonT("Step [.]", "ステップ[.]", ImVec2(bw, SBH))) gSimStep = true;
         ImGui::EndDisabled();
         ImGui::SameLine(0, 4);
         ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.76f,0.26f,0.30f,0.82f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.90f,0.34f,0.38f,0.94f));
-        if (ImGui::Button(T("Reset", "リセット"), ImVec2(bw, SBH))) { resetBall(); gSimPaused = false; }
+        if (ButtonT("Reset", "リセット", ImVec2(bw, SBH))) { resetBall(); gSimPaused = false; }
         ImGui::PopStyleColor(2);
         if (gSimPaused)
             ImGui::TextColored(ImVec4(0.95f,0.67f,0.24f,1.f), "%s",
@@ -3360,7 +3406,7 @@ void renderHUD() {
             createGridMesh();
         }
         ImGui::SameLine(0, 4);
-        if (ImGui::Button(T("Reset Camera [R]", "カメラ[R]"), ImVec2(bwH, 0)))
+        if (ButtonT("Reset Camera [R]", "カメラ[R]", ImVec2(bwH, 0)))
             yaw=35.f, pitch=25.f, cameraDistance=55.f;
         ImGui::Checkbox(T("Auto Rotate [Space]", "自動回転 [Space]"), &autoRotate);
         ImGui::TextDisabled(T("  Grid: %d   FPS: %.0f", "  グリッド: %d   FPS: %.0f"),
@@ -3610,7 +3656,7 @@ void renderHUD() {
             2*gLibSize*gLibSx, 2*gLibSize*gLibSy, 2*gLibSize*gLibSz,
             lom.rho * shapeVolume(gLibShape, gLibSize, gLibSx, gLibSy, gLibSz));
 
-        if (ImGui::Button(T("+ Add to Scene", "+ シーンに追加"), ImVec2(-1,0)))
+        if (ButtonT("+ Add to Scene", "+ シーンに追加", ImVec2(-1,0)))
             addSceneObject(gLibShape, gLibMat, gLibSize, gLibSx, gLibSy, gLibSz);
     } else {
         ImGui::TextDisabled("%s", T("  Click a card to select an object.",
@@ -3634,7 +3680,7 @@ void renderHUD() {
         }
     }
     if (gSelectedObjIdx>=0 && gSelectedObjIdx<(int)gSceneObjects.size()) {
-        if (ImGui::Button(T("Delete Selected", "選択を削除"), ImVec2(-1,0)))
+        if (ButtonT("Delete Selected", "選択を削除", ImVec2(-1,0)))
             removeSceneObject(gSelectedObjIdx);
     }
     ImGui::EndChild();
@@ -3670,7 +3716,7 @@ void renderHUD() {
             ImGui::SliderFloat("Y##wsy",&gWsSy,0.05f,8.f,"%.2f"); ImGui::SameLine(0,4);
             ImGui::SetNextItemWidth(colW);
             ImGui::SliderFloat("Z##wsz",&gWsSz,0.05f,8.f,"%.2f");
-            if (ImGui::Button(T("Reset Scale##ws", "スケールリセット##ws"), ImVec2(0,0)))
+            if (ButtonT("Reset Scale##ws", "スケールリセット##ws", ImVec2(0,0)))
                 gWsSx=gWsSy=gWsSz=1.f;
             // Physics preview
             const ObjectMaterial& wom = kObjectMaterials[gWsMat];
@@ -3691,7 +3737,7 @@ void renderHUD() {
                 wmass*(rb*rb+rc_*rc_)/5.f, wmass*(ra*ra+rc_*rc_)/5.f, wmass*(ra*ra+rb*rb)/5.f);
             ImGui::Separator();
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.24f,0.68f,0.40f,0.86f));
-            if (ImGui::Button(T("Spawn into Scene", "シーンに配置"), ImVec2(-1,0)))
+            if (ButtonT("Spawn into Scene", "シーンに配置", ImVec2(-1,0)))
                 addSceneObject(gWsShape, gWsMat, gWsRadius, gWsSx, gWsSy, gWsSz);
             ImGui::PopStyleColor();
             ImGui::EndChild();
@@ -3753,7 +3799,7 @@ void renderHUD() {
             }
             ImGui::Separator();
             ImGui::PushStyleColor(ImGuiCol_Button, alphaOf(themeAccent(), 0.88f));
-            if (ImGui::Button(T("Connect##do", "接続##do"), ImVec2(-1,0)) && gWsConnA>=0 && gBtWorld) {
+            if (ButtonT("Connect##do", "接続##do", ImVec2(-1,0)) && gWsConnA>=0 && gBtWorld) {
                 SceneConstraint sc;
                 sc.typeIdx=gWsConType; sc.objA=gWsConnA; sc.objB=gWsConnB;
                 sc.pivotA=gWsPivA; sc.pivotB=gWsPivB;
@@ -3850,7 +3896,7 @@ void renderHUD() {
                     obj.body->activate();
                 }
                 ImGui::Separator();
-                if (ImGui::Button(T("Reset Velocity##rv", "速度リセット##rv"), ImVec2(0,0)) && obj.body) {
+                if (ButtonT("Reset Velocity##rv", "速度リセット##rv", ImVec2(0,0)) && obj.body) {
                     obj.body->setLinearVelocity(btVector3(0,0,0));
                     obj.body->setAngularVelocity(btVector3(0,0,0));
                     obj.body->clearForces(); obj.body->activate();
@@ -3859,9 +3905,9 @@ void renderHUD() {
                 ImGui::TextColored(ImVec4(0.7f,0.9f,0.7f,1.f),"v=%.2f m/s", std::sqrt(dot(obj.vel,obj.vel)));
 
                 ImGui::Separator();
-                if (ImGui::Button(T("Clone Object##clone", "複製##clone"), ImVec2(-1,0)))
+                if (ButtonT("Clone Object##clone", "複製##clone", ImVec2(-1,0)))
                     addSceneObject(obj.shapeType, obj.matIdx, obj.r, obj.sx, obj.sy, obj.sz);
-                if (ImGui::Button(T("Delete Object##del", "削除##del"), ImVec2(-1,0)))
+                if (ButtonT("Delete Object##del", "削除##del", ImVec2(-1,0)))
                     removeSceneObject(gSelectedObjIdx);
             } else {
                 ImGui::TextDisabled("%s", T("  Select an object in the scene list to refine.",
