@@ -2683,8 +2683,11 @@ static void setup3DStyle(float dpiScale) {
 
 // ── Draw a shape icon onto ImDrawList at position p in a sz×sz box ────────────
 static void DrawLibIcon(ImDrawList* dl, ImVec2 p, float sz, int shape, ImU32 fill, ImU32 edge) {
-    float r  = sz * 0.34f;
-    float cx = p.x + sz*0.5f, cy = p.y + sz*0.50f;
+    // Shifted up (0.42 instead of dead-center 0.50) and slightly smaller
+    // (0.30 instead of 0.34) so the icon no longer overlaps the name label
+    // drawn in the card's bottom band (see textY in the library grid code).
+    float r  = sz * 0.30f;
+    float cx = p.x + sz*0.5f, cy = p.y + sz*0.42f;
     switch (shape) {
         case 0: // sphere
             dl->AddCircleFilled({cx,cy},r,fill,28);
@@ -2955,7 +2958,14 @@ static void drawMainPanelHeader() {
     ImGui::SetCursorScreenPos({p.x + s.x - segW - 16.0f, p.y + 18.0f});
     bool jaActive = (gLang == Lang::JA);
     float half = (segW - 4.0f) * 0.5f;
-    bool jpClicked = macSegmentButton("JP", jaActive, {half, 28.0f});
+    // Labelled with the actual Japanese script ("日") rather than the Latin
+    // abbreviation "JP": at this button's small rendered size, DejaVu Sans's
+    // capital J loses its hook to anti-aliasing and reads as a plain "I" -
+    // confirmed by rendering both glyphs at a large debug size, where the
+    // hook is clearly present. Showing the target language's own script
+    // sidesteps the ambiguity entirely (and is the more common convention
+    // for language toggles anyway).
+    bool jpClicked = macSegmentButton("日", jaActive, {half, 28.0f});
     ImGui::SameLine(0.0f, 4.0f);
     bool enClicked = macSegmentButton("EN", !jaActive, {half, 28.0f});
     if (jpClicked && !jaActive) gLang = Lang::JA;
@@ -3407,7 +3417,9 @@ void renderHUD() {
     ImGui::BeginChild("##libscroll", ImVec2(0, ImGui::GetContentRegionAvail().y), ImGuiChildFlags_None);
 
     // ── Category sidebar + card grid ──────────────────────────────────────────
-    ImGui::BeginChild("##libcats", ImVec2(96,288), true);
+    // Wide enough for the longest category label ("Primitives"/"Cylinders")
+    // without truncating - 96px clipped them mid-word.
+    ImGui::BeginChild("##libcats", ImVec2(120,288), true);
     for (int ci=0; ci<kNumLibCats; ++ci) {
         bool sel = (gLibCatFilter==ci);
         if (sel) ImGui::PushStyleColor(ImGuiCol_Header, alphaOf(themeAccent(), 0.32f));
@@ -3964,6 +3976,26 @@ int main() {
     cfg.OversampleV = 3;
     cfg.PixelSnapH  = false;
 
+    // ImGui's GetGlyphRangesJapanese() always starts with a Basic Latin
+    // range (0x0020-0x00FF, verified in imgui_draw.cpp). Merging that whole
+    // range in lets the CJK font's own Latin/ASCII glyphs silently override
+    // the primary font's - which is why the "JP" language toggle was
+    // rendering as "IP": the merged CJK font's own 'J' glyph replaced
+    // DejaVu Sans's. Stripping that leading pair keeps the primary font as
+    // the sole source for every Latin character, merging in only the
+    // Japanese-specific ranges (punctuation, kana, kanji) actually needed.
+    static std::vector<ImWchar> gJapaneseRangesNoLatin;
+    if (gJapaneseRangesNoLatin.empty()) {
+        const ImWchar* full = io.Fonts->GetGlyphRangesJapanese();
+        int i = 2; // skip the first (Basic Latin) pair
+        while (full[i] != 0) {
+            gJapaneseRangesNoLatin.push_back(full[i]);
+            gJapaneseRangesNoLatin.push_back(full[i + 1]);
+            i += 2;
+        }
+        gJapaneseRangesNoLatin.push_back(0);
+    }
+
 #if defined(__EMSCRIPTEN__)
     // Apple's system fonts can't legally be bundled into a public web build,
     // and don't exist in Emscripten's virtual filesystem anyway. DejaVu Sans
@@ -3985,8 +4017,8 @@ int main() {
         cfgJP.MergeMode   = true;
         cfgJP.OversampleH = 2;
         cfgJP.OversampleV = 2;
-        const ImWchar* jpRanges = io.Fonts->GetGlyphRangesJapanese();
-        io.Fonts->AddFontFromFileTTF("/fonts/NotoSansJP-Regular.otf", pixelSize, &cfgJP, jpRanges);
+        io.Fonts->AddFontFromFileTTF("/fonts/NotoSansJP-Regular.otf", pixelSize, &cfgJP,
+            gJapaneseRangesNoLatin.data());
     }
 #else
     // Load San Francisco (macOS native UI font) — crisp at any size
@@ -4004,7 +4036,6 @@ int main() {
         cfgJP.MergeMode    = true;
         cfgJP.OversampleH  = 2;
         cfgJP.OversampleV  = 2;
-        const ImWchar* jpRanges = io.Fonts->GetGlyphRangesJapanese();
         // Try known macOS CJK font paths in order
         const char* jpPaths[] = {
             "/System/Library/Fonts/Hiragino Sans GB.ttc",
@@ -4014,7 +4045,8 @@ int main() {
             nullptr
         };
         for (int pi = 0; jpPaths[pi]; ++pi) {
-            if (io.Fonts->AddFontFromFileTTF(jpPaths[pi], pixelSize, &cfgJP, jpRanges))
+            if (io.Fonts->AddFontFromFileTTF(jpPaths[pi], pixelSize, &cfgJP,
+                    gJapaneseRangesNoLatin.data()))
                 break;
         }
     }
