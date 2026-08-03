@@ -3163,7 +3163,7 @@ void renderHUD() {
     // ── Main panel (only when open) ───────────────────────────────────────────
     if (gPanelOpen) {
     ImGui::SetNextWindowPos(ImVec2(12.f, 12.f), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(gStoredPanelW, (float)framebufferHeight - 24.f), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(gStoredPanelW, (float)framebufferHeight - 24.f), ImGuiCond_Always);
     ImGui::Begin("##mainpanel", nullptr,
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar |
         ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
