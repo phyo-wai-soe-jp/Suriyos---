@@ -3263,12 +3263,22 @@ void renderHUD() {
 
     // ── Panel state ───────────────────────────────────────────────────────────
     static bool  gPanelOpen    = true;
-    static float gStoredPanelW = 445.f;
+    static float gStoredPanelW = 445.f;   // preferred width on a normal desktop window
+
+    // Clamp to the actual display width so the panel can never cover the
+    // entire screen with nothing else visible - on a phone-width viewport
+    // (~390 CSS px), the un-clamped 445px default alone exceeded the whole
+    // screen, leaving no room for the 3D view or even the collapse button,
+    // which read as "the app doesn't work" on mobile. gStoredPanelW itself
+    // is left alone (not overwritten with the clamped value) so the panel
+    // returns to its full preferred width if the viewport widens again.
+    ImVec2 dispForPanel = ImGui::GetIO().DisplaySize;
+    float panelW = std::min(gStoredPanelW, std::max(200.f, dispForPanel.x - 48.f));
 
     // ── Toggle button — floats at top-right outside the box ──────────────────
     {
         constexpr float BZ = 26.f;
-        float bx = 12.f + (gPanelOpen ? gStoredPanelW + 6.f : 0.f);
+        float bx = 12.f + (gPanelOpen ? panelW + 6.f : 0.f);
         ImGui::SetNextWindowPos(ImVec2(bx, 12.f), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(BZ, BZ), ImGuiCond_Always);
         ImGui::SetNextWindowBgAlpha(0.f);
@@ -3306,14 +3316,13 @@ void renderHUD() {
     // the part hanging off the bottom (NoScrollbar/NoScrollWithMouse below
     // also blocked panning to it even when the window height was otherwise
     // fine, e.g. on a short browser window).
-    ImVec2 disp = ImGui::GetIO().DisplaySize;
+    ImVec2 disp = dispForPanel;
     ImGui::SetNextWindowPos(ImVec2(12.f, 12.f), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(gStoredPanelW, disp.y - 24.f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(panelW, disp.y - 24.f), ImGuiCond_Always);
     ImGui::Begin("##mainpanel", nullptr,
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar |
         ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
         ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoResize);
-    gStoredPanelW = ImGui::GetWindowSize().x;
 
     drawMainPanelHeader();
 
