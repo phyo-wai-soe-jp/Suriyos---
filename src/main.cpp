@@ -2527,7 +2527,10 @@ void cursorCallback(GLFWwindow* window, double x, double y) {
 }
 
 void scrollCallback(GLFWwindow* window, double xOffset, double yOffset) {
-    ImGui_ImplGlfw_ScrollCallback(window, xOffset, yOffset);
+    // Drop horizontal scroll here too (see the web-only wheel callback in
+    // main() for the fuller explanation) - nothing in this UI scrolls
+    // sideways, so a horizontal trackpad swipe should never move anything.
+    ImGui_ImplGlfw_ScrollCallback(window, 0.0, yOffset);
     if (ImGui::GetIO().WantCaptureMouse) return;
     cameraDistance = std::clamp(cameraDistance - static_cast<float>(yOffset), 3.0f, 2000.0f);
 }
@@ -4039,13 +4042,19 @@ int main() {
     // did nothing or barely moved anything through ImGui_ImplGlfw_ScrollCallback.
     // Reading the browser wheel event directly and normalizing by its own
     // deltaMode sidesteps that entirely.
+    //
+    // Horizontal delta is intentionally dropped (not forwarded as
+    // MouseWheelH): nothing in this UI needs horizontal scrolling, but a
+    // horizontal two-finger trackpad swipe - easy to trigger by accident,
+    // especially on a Mac - was silently scrolling tab bars and panel
+    // content sideways, making the settings panel look like it "slid" or
+    // reflowed on its own.
     emscripten_set_wheel_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true,
         [](int, const EmscriptenWheelEvent* e, void*) -> EM_BOOL {
             float scale = e->deltaMode == DOM_DELTA_PIXEL ? 0.01f
                         : e->deltaMode == DOM_DELTA_LINE  ? 1.0f
                                                            : 20.0f; // DOM_DELTA_PAGE
-            ImGui::GetIO().AddMouseWheelEvent(
-                (float)-e->deltaX * scale, (float)-e->deltaY * scale);
+            ImGui::GetIO().AddMouseWheelEvent(0.0f, (float)-e->deltaY * scale);
             return EM_TRUE;
         });
 
