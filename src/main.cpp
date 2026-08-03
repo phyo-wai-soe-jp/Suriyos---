@@ -2948,6 +2948,23 @@ static void drawMainPanelHeader() {
 void renderHUD() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
+#if defined(__EMSCRIPTEN__)
+    // Every SetNextWindowPos/SetNextWindowSize call in this file positions
+    // things directly in framebufferWidth/framebufferHeight units (e.g. the
+    // main panel is sized to framebufferHeight - 24) — the whole UI is
+    // written assuming that IS the coordinate space ImGui lays windows out
+    // in. But ImGui_ImplGlfw_NewFrame() just set io.DisplaySize from GLFW's
+    // own internal "window size" (still the literal 900x700 passed to
+    // glfwCreateWindow — ResizeCanvasForDPI resizes the canvas element
+    // directly and never touches that), so ImGui was positioning windows
+    // against a 900x700 canvas that no longer has anything to do with the
+    // real one, at the wrong aspect ratio — which is what pushed the panel
+    // into the bottom-left instead of filling the left side top-to-bottom.
+    // Overriding it to match framebufferWidth/Height keeps every existing
+    // SetNextWindowPos/Size call correct without having to touch each one.
+    ImGui::GetIO().DisplaySize = ImVec2((float)framebufferWidth, (float)framebufferHeight);
+    ImGui::GetIO().DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+#endif
     ImGui::NewFrame();
 
     // Refined glass rounding per frame
