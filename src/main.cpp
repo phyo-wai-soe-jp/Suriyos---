@@ -3072,17 +3072,16 @@ static bool ControlSliderFloatT(const char* en, const char* ja, const char* id,
     ControlLabel(T(en, ja), valueText);
     bool changed = false;
     ImGui::PushID(id);
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6.0f, 4.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6.0f, 3.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, 2.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
     const char* inputFormat = InputFormatForSlider(format);
     float inputW = 90.0f;
-    auto shortSliderW = [](float availW) {
-        return std::clamp(availW * 0.18f, 52.0f, 70.0f);
-    };
     float avail = ImGui::GetContentRegionAvail().x;
     if (showReset) {
         float resetW = 64.0f;
         if (avail >= inputW + resetW + 76.0f) {
-            float sliderW = shortSliderW(avail);
+            float sliderW = std::max(96.0f, avail - inputW - resetW - 12.0f);
             ImGui::SetNextItemWidth(sliderW);
             changed |= ImGui::SliderFloat("##slider", value, minValue, maxValue, "", flags);
             ImGui::SameLine(0.0f, 6.0f);
@@ -3108,7 +3107,7 @@ static bool ControlSliderFloatT(const char* en, const char* ja, const char* id,
         }
     } else {
         if (avail >= inputW + 76.0f) {
-            float sliderW = shortSliderW(avail);
+            float sliderW = std::max(104.0f, avail - inputW - 6.0f);
             ImGui::SetNextItemWidth(sliderW);
             changed |= ImGui::SliderFloat("##slider", value, minValue, maxValue, "", flags);
             ImGui::SameLine(0.0f, 6.0f);
@@ -3127,7 +3126,7 @@ static bool ControlSliderFloatT(const char* en, const char* ja, const char* id,
             }
         }
     }
-    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(3);
     ImGui::PopID();
     return changed;
 }
@@ -3139,7 +3138,9 @@ static bool AxisSlider3T(const char* en, const char* ja, const char* id,
     ControlLabel(T(en, ja));
     bool changed = false;
     ImGui::PushID(id);
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6.0f, 4.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6.0f, 3.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, 2.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
     const char* inputFormat = InputFormatForSlider(format);
     auto drawAxis = [&](const char* axis, ImVec4 color, float* value, const char* rowId) {
         char valueText[48];
@@ -3148,11 +3149,11 @@ static bool AxisSlider3T(const char* en, const char* ja, const char* id,
         float avail = ImGui::GetContentRegionAvail().x;
         float axisW = 24.0f;
         float inputW = 82.0f;
-        float sliderW = std::clamp(avail * 0.18f, 52.0f, 70.0f);
         ImGui::AlignTextToFramePadding();
         ImGui::TextColored(color, "%s", axis);
         ImGui::SameLine(0.0f, 8.0f);
         if (avail >= axisW + inputW + 84.0f) {
+            float sliderW = std::max(96.0f, avail - axisW - inputW - 14.0f);
             ImGui::SetNextItemWidth(sliderW);
             changed |= ImGui::SliderFloat("##slider", value, minValue, maxValue, "");
             ImGui::SameLine(0.0f, 6.0f);
@@ -3185,7 +3186,7 @@ static bool AxisSlider3T(const char* en, const char* ja, const char* id,
             changed = true;
         }
     }
-    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(3);
     ImGui::PopID();
     return changed;
 }
@@ -3243,13 +3244,15 @@ static bool BorderedCategoryButton(const char* label, bool selected, ImVec2 size
     ImU32 br = selected ? toU32(alphaOf(accent, 0.95f))
               : hovered ? IM_COL32(165,174,194,150)
                         : IM_COL32(255,255,255,72);
-    dl->AddRectFilled(p, {p.x + size.x, p.y + size.y}, bg, 7.0f);
-    dl->AddRect(p, {p.x + size.x, p.y + size.y}, br, 7.0f, 0, selected ? 1.6f : 1.0f);
+    float radius = std::min(7.0f, size.y * 0.32f);
+    dl->AddRectFilled(p, {p.x + size.x, p.y + size.y}, bg, radius);
+    dl->AddRect(p, {p.x + size.x, p.y + size.y}, br, radius, 0, selected ? 1.5f : 1.0f);
 
     ImVec2 ts = ImGui::CalcTextSize(label);
     ImU32 textCol = selected ? IM_COL32(245,248,255,255) : IM_COL32(215,220,232,235);
-    dl->PushClipRect({p.x + 8.0f, p.y}, {p.x + size.x - 8.0f, p.y + size.y}, true);
-    dl->AddText({p.x + 12.0f, p.y + (size.y - ts.y) * 0.5f}, textCol, label);
+    dl->PushClipRect({p.x + 6.0f, p.y}, {p.x + size.x - 6.0f, p.y + size.y}, true);
+    dl->AddText({std::max(p.x + 6.0f, p.x + (size.x - ts.x) * 0.5f),
+                 p.y + (size.y - ts.y) * 0.5f}, textCol, label);
     dl->PopClipRect();
     return clicked;
 }
@@ -3924,28 +3927,29 @@ void renderHUD() {
     ImGui::Spacing();
     {
         float availX = ImGui::GetContentRegionAvail().x;
-        float rowX = 0.0f;
+        constexpr float chipH = 24.0f;
+        constexpr float chipGap = 4.0f;
+        ImVec2 start = ImGui::GetCursorScreenPos();
+        float x = start.x;
+        float y = start.y;
+        float maxX = start.x + availX;
         for (int ci=0; ci<kNumLibCats; ++ci) {
             const char* label = (gLang==Lang::JA)?kLibCategoriesJA[ci]:kLibCategories[ci];
-            float w = std::clamp(ImGui::CalcTextSize(label).x + 28.0f, 58.0f, availX);
-            if (ci > 0) {
-                if (rowX + 6.0f + w > availX) {
-                    ImGui::NewLine();
-                    rowX = 0.0f;
-                } else {
-                    ImGui::SameLine(0.0f, 6.0f);
-                    rowX += 6.0f;
-                }
+            float w = std::clamp(ImGui::CalcTextSize(label).x + 20.0f, 46.0f, availX);
+            if (x > start.x && x + w > maxX) {
+                x = start.x;
+                y += chipH + chipGap;
             }
+            ImGui::SetCursorScreenPos({x, y});
             bool sel = (gLibCatFilter==ci);
             ImGui::PushID(ci);
-            if (BorderedCategoryButton(label, sel, ImVec2(w, 30.f)))
+            if (BorderedCategoryButton(label, sel, ImVec2(w, chipH)))
                 { gLibCatFilter=ci; gLibSelected=-1; gLibVariantSel=0; }
             ImGui::PopID();
-            rowX += w;
+            x += w + chipGap;
         }
+        ImGui::SetCursorScreenPos({start.x, y + chipH + 6.0f});
     }
-    ImGui::Spacing();
 
     // card grid
     ImGui::BeginChild("##libgrid", ImVec2(0,300), true);
