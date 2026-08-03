@@ -2629,13 +2629,13 @@ static void setup3DStyle(float dpiScale) {
     s.PopupBorderSize   = 1.0f;
 
     s.WindowPadding     = ImVec2(18.0f, 16.0f);
-    s.FramePadding      = ImVec2(12.0f,  8.0f);
+    s.FramePadding      = ImVec2(10.0f,  6.0f);
     s.CellPadding       = ImVec2(10.0f,  6.0f);
-    s.ItemSpacing       = ImVec2(12.0f, 10.0f);
-    s.ItemInnerSpacing  = ImVec2( 8.0f,  6.0f);
+    s.ItemSpacing       = ImVec2(10.0f,  7.0f);
+    s.ItemInnerSpacing  = ImVec2( 7.0f,  5.0f);
     s.IndentSpacing     = 22.0f;
     s.ScrollbarSize     =  8.0f;
-    s.GrabMinSize       = 14.0f;
+    s.GrabMinSize       = 10.0f;
     s.WindowMinSize     = ImVec2(80.0f, 40.0f);
     s.WindowTitleAlign  = ImVec2(0.5f, 0.5f);
     s.ButtonTextAlign   = ImVec2(0.5f, 0.5f);
@@ -3028,6 +3028,14 @@ static bool ControlComboT(const char* en, const char* ja, const char* id,
     return changed;
 }
 
+static const char* InputFormatForSlider(const char* displayFormat) {
+    if (std::strstr(displayFormat, "%.0") || std::strstr(displayFormat, "%0.0")) return "%.0f";
+    if (std::strstr(displayFormat, "%.1") || std::strstr(displayFormat, "%0.1")) return "%.1f";
+    if (std::strstr(displayFormat, "%.2") || std::strstr(displayFormat, "%0.2")) return "%.2f";
+    if (std::strstr(displayFormat, "%.4") || std::strstr(displayFormat, "%0.4")) return "%.4f";
+    return "%.3f";
+}
+
 static bool ControlSliderFloatT(const char* en, const char* ja, const char* id,
                                 float* value, float minValue, float maxValue,
                                 const char* format, ImGuiSliderFlags flags = 0,
@@ -3037,22 +3045,60 @@ static bool ControlSliderFloatT(const char* en, const char* ja, const char* id,
     ControlLabel(T(en, ja), valueText);
     bool changed = false;
     ImGui::PushID(id);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6.0f, 4.0f));
+    const char* inputFormat = InputFormatForSlider(format);
+    float inputW = 78.0f;
+    float avail = ImGui::GetContentRegionAvail().x;
     if (showReset) {
-        float resetW = 72.0f;
-        float sliderW = std::max(96.0f, ImGui::GetContentRegionAvail().x - resetW - 8.0f);
-        ImGui::SetNextItemWidth(sliderW);
-        changed |= ImGui::SliderFloat("##slider", value, minValue, maxValue, "", flags);
-        ImGui::SameLine(0.0f, 8.0f);
+        float resetW = 64.0f;
+        if (avail >= 250.0f) {
+            float sliderW = std::max(96.0f, avail - inputW - resetW - 12.0f);
+            ImGui::SetNextItemWidth(sliderW);
+            changed |= ImGui::SliderFloat("##slider", value, minValue, maxValue, "", flags);
+            ImGui::SameLine(0.0f, 6.0f);
+            ImGui::SetNextItemWidth(inputW);
+            if (ImGui::InputFloat("##input", value, 0, 0, inputFormat)) {
+                *value = std::clamp(*value, minValue, maxValue);
+                changed = true;
+            }
+            ImGui::SameLine(0.0f, 6.0f);
+        } else {
+            ImGui::SetNextItemWidth(-1);
+            changed |= ImGui::SliderFloat("##slider", value, minValue, maxValue, "", flags);
+            ImGui::SetNextItemWidth(std::max(72.0f, avail - resetW - 6.0f));
+            if (ImGui::InputFloat("##input", value, 0, 0, inputFormat)) {
+                *value = std::clamp(*value, minValue, maxValue);
+                changed = true;
+            }
+            ImGui::SameLine(0.0f, 6.0f);
+        }
         if (ActionButtonT("Reset", "リセット", ActionTone::Neutral, ImVec2(resetW, 0))) {
             *value = resetValue;
             changed = true;
         }
     } else {
-        ImGui::SetNextItemWidth(-1);
-        changed |= ImGui::SliderFloat("##slider", value, minValue, maxValue, "", flags);
+        if (avail >= 190.0f) {
+            float sliderW = std::max(104.0f, avail - inputW - 6.0f);
+            ImGui::SetNextItemWidth(sliderW);
+            changed |= ImGui::SliderFloat("##slider", value, minValue, maxValue, "", flags);
+            ImGui::SameLine(0.0f, 6.0f);
+            ImGui::SetNextItemWidth(inputW);
+            if (ImGui::InputFloat("##input", value, 0, 0, inputFormat)) {
+                *value = std::clamp(*value, minValue, maxValue);
+                changed = true;
+            }
+        } else {
+            ImGui::SetNextItemWidth(-1);
+            changed |= ImGui::SliderFloat("##slider", value, minValue, maxValue, "", flags);
+            ImGui::SetNextItemWidth(-1);
+            if (ImGui::InputFloat("##input", value, 0, 0, inputFormat)) {
+                *value = std::clamp(*value, minValue, maxValue);
+                changed = true;
+            }
+        }
     }
+    ImGui::PopStyleVar();
     ImGui::PopID();
-    ImGui::Spacing();
     return changed;
 }
 
@@ -3063,49 +3109,54 @@ static bool AxisSlider3T(const char* en, const char* ja, const char* id,
     ControlLabel(T(en, ja));
     bool changed = false;
     ImGui::PushID(id);
-    float avail = ImGui::GetContentRegionAvail().x;
-    float gap = 6.0f;
-    float colW = (avail - gap * 2.0f) / 3.0f;
-    auto drawAxis = [&](const char* axis, ImVec4 color, float* value, const char* sliderId) {
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6.0f, 4.0f));
+    const char* inputFormat = InputFormatForSlider(format);
+    auto drawAxis = [&](const char* axis, ImVec4 color, float* value, const char* rowId) {
         char valueText[48];
         std::snprintf(valueText, sizeof(valueText), format, *value);
-        ImGui::BeginGroup();
+        ImGui::PushID(rowId);
+        float avail = ImGui::GetContentRegionAvail().x;
+        float axisW = 24.0f;
+        float inputW = 72.0f;
+        ImGui::AlignTextToFramePadding();
         ImGui::TextColored(color, "%s", axis);
-        ImGui::SameLine();
-        ImGui::TextDisabled("%s", valueText);
-        ImGui::SetNextItemWidth(colW);
-        changed |= ImGui::SliderFloat(sliderId, value, minValue, maxValue, "");
-        ImGui::EndGroup();
+        ImGui::SameLine(0.0f, 8.0f);
+        if (avail >= 210.0f) {
+            float sliderW = std::max(96.0f, avail - axisW - inputW - 14.0f);
+            ImGui::SetNextItemWidth(sliderW);
+            changed |= ImGui::SliderFloat("##slider", value, minValue, maxValue, "");
+            ImGui::SameLine(0.0f, 6.0f);
+            ImGui::SetNextItemWidth(inputW);
+            if (ImGui::InputFloat("##input", value, 0, 0, inputFormat)) {
+                *value = std::clamp(*value, minValue, maxValue);
+                changed = true;
+            }
+        } else {
+            ImGui::SetNextItemWidth(std::max(64.0f, avail - axisW - 8.0f));
+            if (ImGui::InputFloat("##input", value, 0, 0, inputFormat)) {
+                *value = std::clamp(*value, minValue, maxValue);
+                changed = true;
+            }
+            ImGui::SetNextItemWidth(-1);
+            changed |= ImGui::SliderFloat("##slider", value, minValue, maxValue, "");
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("%s", valueText);
+        ImGui::PopID();
     };
 
-    if (colW >= 76.0f) {
-        drawAxis("X", ImVec4(0.95f, 0.36f, 0.34f, 1.00f), x, "##x");
-        ImGui::SameLine(0.0f, gap);
-        drawAxis("Y", ImVec4(0.42f, 0.95f, 0.38f, 1.00f), y, "##y");
-        ImGui::SameLine(0.0f, gap);
-        drawAxis("Z", ImVec4(0.36f, 0.54f, 1.00f, 1.00f), z, "##z");
-    } else {
-        char xVal[48], yVal[48], zVal[48], xText[64], yText[64], zText[64];
-        std::snprintf(xVal, sizeof(xVal), format, *x);
-        std::snprintf(yVal, sizeof(yVal), format, *y);
-        std::snprintf(zVal, sizeof(zVal), format, *z);
-        std::snprintf(xText, sizeof(xText), "X  %s", xVal);
-        std::snprintf(yText, sizeof(yText), "Y  %s", yVal);
-        std::snprintf(zText, sizeof(zText), "Z  %s", zVal);
-        ControlLabel(xText); ImGui::SetNextItemWidth(-1); changed |= ImGui::SliderFloat("##x", x, minValue, maxValue, "");
-        ControlLabel(yText); ImGui::SetNextItemWidth(-1); changed |= ImGui::SliderFloat("##y", y, minValue, maxValue, "");
-        ControlLabel(zText); ImGui::SetNextItemWidth(-1); changed |= ImGui::SliderFloat("##z", z, minValue, maxValue, "");
-    }
+    drawAxis("X", ImVec4(0.95f, 0.36f, 0.34f, 1.00f), x, "x");
+    drawAxis("Y", ImVec4(0.42f, 0.95f, 0.38f, 1.00f), y, "y");
+    drawAxis("Z", ImVec4(0.36f, 0.54f, 1.00f, 1.00f), z, "z");
 
     if (showReset) {
-        ImGui::Spacing();
-        if (ActionButtonT("Reset axes", "軸リセット", ActionTone::Neutral, ImVec2(-1, 0))) {
+        if (ActionButtonT("Reset axes", "軸リセット", ActionTone::Neutral, ImVec2(-1, 28.f))) {
             *x = resetValue; *y = resetValue; *z = resetValue;
             changed = true;
         }
     }
+    ImGui::PopStyleVar();
     ImGui::PopID();
-    ImGui::Spacing();
     return changed;
 }
 
