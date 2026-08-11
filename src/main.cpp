@@ -311,6 +311,7 @@ Mesh gCylinderMesh;
 Mesh gConeMesh;
 Mesh gCapsuleMesh;
 Mesh gCarMesh;
+Mesh gHouseMesh;
 
 // ── Fracture / fragment state ─────────────────────────────────────────────────
 bool  gObjectFragmented = false;
@@ -326,12 +327,12 @@ struct Fragment {
 std::vector<Fragment> gFragments;
 
 // ── Scene Objects (user-placed, individually controllable) ────────────────────
-constexpr const char* kSceneShapeNames[] = {"Sphere","Box","Cylinder","Cone","Capsule","Car"};
-constexpr int kNumSceneShapes = 6;
+constexpr const char* kSceneShapeNames[] = {"Sphere","Box","Cylinder","Cone","Capsule","Car","House"};
+constexpr int kNumSceneShapes = 7;
 
 static const char* const* getSceneShapeNamesL() {
-    static const char* en[] = {"Sphere","Box","Cylinder","Cone","Capsule","Car"};
-    static const char* ja[] = {"球体","直方体","円柱","円錐","カプセル体","車"};
+    static const char* en[] = {"Sphere","Box","Cylinder","Cone","Capsule","Car","House"};
+    static const char* ja[] = {"球体","直方体","円柱","円錐","カプセル体","車","家"};
     return (gLang == Lang::JA) ? ja : en;
 }
 
@@ -359,6 +360,15 @@ int   gSelectedObjIdx = -1;
 int   gLibShape       = 0;
 int   gLibMat         = 0;
 float gLibSize        = 0.5f;
+
+bool  gMainPanelOpenForInput = true;
+float gMainPanelX = 12.0f, gMainPanelY = 12.0f, gMainPanelW = 445.0f, gMainPanelH = 0.0f;
+
+static bool isPointInsideMainPanel(double x, double y) {
+    return gMainPanelOpenForInput &&
+           x >= gMainPanelX && x <= gMainPanelX + gMainPanelW &&
+           y >= gMainPanelY && y <= gMainPanelY + gMainPanelH;
+}
 
 // ── Object Library data ───────────────────────────────────────────────────────
 struct LibVariant { const char* name; float sx,sy,sz; int matHint; };
@@ -412,18 +422,20 @@ static const LibEntry kLibEntries[] = {
      {{"3-Door",1.75f,1.52f,3.9f,2},{"5-Door",1.75f,1.54f,4.0f,2},{"Hot Hatch",1.78f,1.45f,4.0f,2},{"Micro",1.6f,1.5f,3.5f,2}},4, 0.20f,0.65f,0.25f},
     {"Formula Car", "Cars",    5,"Open-wheel racer — ultra-low, wide front wing",
      {{"F1 Style",2.0f,0.95f,5.3f,2},{"Indy",2.0f,1.0f,5.5f,2},{"Kart",1.4f,0.6f,2.5f,4},{"GT Race",2.1f,1.05f,4.9f,2}},4, 1.0f,0.20f,0.05f},
+    {"House",       "Buildings",6,"Gabled house — reshape any object into a building shell",
+     {{"Cottage",1.5f,1.1f,1.4f,5},{"Tall House",1.1f,1.7f,1.1f,5},{"Wide House",2.2f,1.0f,1.2f,5},{"Tiny House",1.0f,0.9f,1.8f,5}},4, 0.72f,0.48f,0.32f},
 };
 static const int kNumLibEntries = (int)(sizeof(kLibEntries)/sizeof(kLibEntries[0]));
-static const char* kLibCategories[] = {"All","Primitives","Boxes","Cylinders","Cones","Capsules","Cars"};
-static const char* kLibCategoriesJA[] = {"すべて","基本形","直方体","円柱","円錐","カプセル","車"};
-static const int   kNumLibCats = 7;
+static const char* kLibCategories[] = {"All","Primitives","Boxes","Cylinders","Cones","Capsules","Cars","Buildings"};
+static const char* kLibCategoriesJA[] = {"すべて","基本形","直方体","円柱","円錐","カプセル","車","建物"};
+static const int   kNumLibCats = 8;
 static const char* kLibEntryNamesJA[] = {
     "球体","金属球","氷球","ゴム球",
     "立方体","木材ブロック","氷ブロック",
     "円柱体","車輪","円錐体","カプセル体",
     "ランドクルーザー","バン","スポーツカー","ピックアップトラック",
     "セダン","コンパクトSUV","路線バス","セミキャブ",
-    "ハッチバック","フォーミュラカー"
+    "ハッチバック","フォーミュラカー","家"
 };
 static const char* kLibVariantNamesJA[][4] = {
     {"標準","扁平","縦長","重量型"},
@@ -447,6 +459,7 @@ static const char* kLibVariantNamesJA[][4] = {
     {"デイキャブ","スリーパー","フラットノーズ","重量型"},
     {"3ドア","5ドア","ホットハッチ","マイクロ"},
     {"F1スタイル","インディ","カート","GTレース"},
+    {"コテージ","高い家","広い家","小さな家"},
 };
 
 // Library UI state
@@ -1111,6 +1124,52 @@ void createCarMesh() {
     uploadIndexedMesh(gCarMesh,verts,idx);
 }
 
+void createHouseMesh() {
+    // Unit gabled house: walls occupy y=-1..0.25, roof ridge reaches y=1.
+    // The model matrix supplies radius and non-uniform scale, just like other scene objects.
+    std::vector<Vertex> verts;
+    auto tri = [&](Vec3 a, Vec3 b, Vec3 c, float r, float g, float bl) {
+        Vec3 n = normalize(cross(b - a, c - a));
+        verts.push_back({a,n,r,g,bl,1.f});
+        verts.push_back({b,n,r,g,bl,1.f});
+        verts.push_back({c,n,r,g,bl,1.f});
+    };
+    auto quad = [&](Vec3 a, Vec3 b, Vec3 c, Vec3 d, float r, float g, float bl) {
+        tri(a,b,c,r,g,bl);
+        tri(c,b,d,r,g,bl);
+    };
+
+    const float y0=-1.0f, y1=0.25f, yr=1.0f;
+    const float wallR=0.78f, wallG=0.72f, wallB=0.62f;
+    const float roofR=0.62f, roofG=0.20f, roofB=0.16f;
+    const float glassR=0.38f, glassG=0.58f, glassB=0.78f;
+
+    // Wall box
+    quad({ 1,y0,-1},{ 1,y0, 1},{ 1,y1,-1},{ 1,y1, 1}, wallR,wallG,wallB);
+    quad({-1,y0, 1},{-1,y0,-1},{-1,y1, 1},{-1,y1,-1}, wallR,wallG,wallB);
+    quad({-1,y0,-1},{ 1,y0,-1},{-1,y0, 1},{ 1,y0, 1}, wallR,wallG,wallB);
+    quad({ 1,y0, 1},{-1,y0, 1},{ 1,y1, 1},{-1,y1, 1}, wallR,wallG,wallB);
+    quad({-1,y0,-1},{ 1,y0,-1},{-1,y1,-1},{ 1,y1,-1}, wallR,wallG,wallB);
+    quad({-1,y1, 1},{ 1,y1, 1},{-1,y1,-1},{ 1,y1,-1}, wallR,wallG,wallB);
+
+    // Gables and roof planes
+    tri({-1,y1,-1},{ 1,y1,-1},{0,yr,-1}, wallR,wallG,wallB);
+    tri({ 1,y1, 1},{-1,y1, 1},{0,yr, 1}, wallR,wallG,wallB);
+    quad({-1,y1, 1},{-1,y1,-1},{0,yr, 1},{0,yr,-1}, roofR,roofG,roofB);
+    quad({ 1,y1,-1},{ 1,y1, 1},{0,yr,-1},{0,yr, 1}, roofR,roofG,roofB);
+
+    // Simple front door and window accents drawn as thin raised quads.
+    const float zf=-1.015f;
+    quad({-0.22f,y0,zf},{0.22f,y0,zf},{-0.22f,-0.18f,zf},{0.22f,-0.18f,zf},
+         0.30f,0.18f,0.12f);
+    quad({-0.78f,-0.45f,zf},{-0.42f,-0.45f,zf},{-0.78f,-0.15f,zf},{-0.42f,-0.15f,zf},
+         glassR,glassG,glassB);
+    quad({0.42f,-0.45f,zf},{0.78f,-0.45f,zf},{0.42f,-0.15f,zf},{0.78f,-0.15f,zf},
+         glassR,glassG,glassB);
+
+    uploadVertices(gHouseMesh, verts);
+}
+
 void updateShadowMesh() {
     constexpr int segments = 64;
     float groundY = groundHeight(ballPosition.x, ballPosition.z);
@@ -1411,6 +1470,18 @@ static btCollisionShape* makeBtShape(int shapeType, float r, float sx, float sy,
             auto* s = new btBoxShape(btVector3(r*sx, r*sy, r*sz));
             s->setMargin(0.005f);
             return s; }
+        case 6: { // House — convex gabled shell hull
+            auto* hull = new btConvexHullShape();
+            float rx=r*sx, ry=r*sy, rz=r*sz;
+            const btVector3 pts[] = {
+                {-rx,-ry,-rz}, { rx,-ry,-rz}, {-rx,-ry, rz}, { rx,-ry, rz},
+                {-rx,0.25f*ry,-rz}, { rx,0.25f*ry,-rz},
+                {-rx,0.25f*ry, rz}, { rx,0.25f*ry, rz},
+                {0,ry,-rz}, {0,ry,rz},
+            };
+            for (const btVector3& p : pts) hull->addPoint(p, false);
+            hull->recalcLocalAabb();
+            return hull; }
         default:
             return new btSphereShape(r);
     }
@@ -1418,6 +1489,10 @@ static btCollisionShape* makeBtShape(int shapeType, float r, float sx, float sy,
 
 // spawnPos.y == -1e30f is a sentinel meaning "auto-height above ground"
 static constexpr float kAutoSpawnY = -1e30f;
+
+static void resetSceneObjectLabel(SceneObject& obj, int index) {
+    std::snprintf(obj.label, sizeof(obj.label), "%s #%d", kSceneShapeNames[obj.shapeType], index + 1);
+}
 
 void addSceneObject(int shapeType, int matIdx, float r,
                     float sx=1.f, float sy=1.f, float sz=1.f,
@@ -1446,8 +1521,7 @@ void addSceneObject(int shapeType, int matIdx, float r,
         obj.orient = spawnOrient;
     }
     obj.euler = {0,0,0};
-    std::snprintf(obj.label, sizeof(obj.label), "%s #%d",
-                  kSceneShapeNames[shapeType], (int)gSceneObjects.size()+1);
+    resetSceneObjectLabel(obj, (int)gSceneObjects.size());
 
     btCollisionShape* cs = makeBtShape(shapeType, r, sx, sy, sz);
 
@@ -2434,6 +2508,7 @@ void render() {
             case 3: m = &gConeMesh;       break;
             case 4: m = &gCapsuleMesh;    break;
             case 5: m = &gCarMesh;         break; // car
+            case 6: m = &gHouseMesh;       break;
         }
         if (m) drawMesh(*m, viewProjection, mdl, true, si == gSelectedObjIdx);
     }
@@ -2528,6 +2603,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
         // ApplyWebDisplayMetrics), whereas lastMouseX/Y is fed by the raw,
         // correctly-scaled coordinates from our own mouse/touch callbacks.
         double mx = lastMouseX, my = lastMouseY;
+        if (isPointInsideMainPanel(mx, my)) return;
 
         // Priority: gizmo handle → object pick → camera orbit
         int gAxis = pickGizmoAxis(mx, my);
@@ -2788,6 +2864,18 @@ static void DrawLibIcon(ImDrawList* dl, ImVec2 p, float sz, int shape, ImU32 fil
             dl->AddCircle({cx+bw*0.58f,gy+wr*0.35f},wr,edge,20,1.0f);
             dl->AddCircleFilled({cx-bw*0.58f,gy+wr*0.35f},wr,wclr,20);
             dl->AddCircle({cx-bw*0.58f,gy+wr*0.35f},wr,edge,20,1.0f);
+            break;
+        }
+        case 6: { // house: square body + pitched roof
+            float bw = sz*0.34f, bh = sz*0.30f;
+            float roofH = sz*0.20f;
+            float by = cy + sz*0.20f;
+            dl->AddRectFilled({cx-bw,by-bh},{cx+bw,by},fill,2.0f);
+            dl->AddTriangleFilled({cx-bw*1.12f,by-bh},{cx+bw*1.12f,by-bh},{cx,by-bh-roofH},
+                                  IM_COL32(150,55,44,235));
+            dl->AddRect({cx-bw,by-bh},{cx+bw,by},edge,2.0f,0,1.4f);
+            dl->AddTriangle({cx-bw*1.12f,by-bh},{cx+bw*1.12f,by-bh},{cx,by-bh-roofH},edge,1.4f);
+            dl->AddRectFilled({cx-bw*0.18f,by-bh*0.42f},{cx+bw*0.18f,by},IM_COL32(70,45,30,240),1.0f);
             break;
         }
     }
@@ -3704,6 +3792,11 @@ void renderHUD() {
     // returns to its full preferred width if the viewport widens again.
     ImVec2 dispForPanel = ImGui::GetIO().DisplaySize;
     float panelW = std::min(gStoredPanelW, std::max(200.f, dispForPanel.x - 48.f));
+    gMainPanelOpenForInput = gPanelOpen;
+    gMainPanelX = 12.0f;
+    gMainPanelY = 12.0f;
+    gMainPanelW = panelW;
+    gMainPanelH = std::max(0.0f, dispForPanel.y - 24.0f);
 
     // ── Toggle button — floats at top-right outside the box ──────────────────
     {
@@ -4292,6 +4385,43 @@ void renderHUD() {
                 ImGui::InputText("##rn", obj.label, sizeof(obj.label));
 
                 ImGui::Separator();
+                int newShape = obj.shapeType;
+                if (ControlComboT("Shape", "形状", "rshape",
+                                  &newShape, getSceneShapeNamesL(), kNumSceneShapes)) {
+                    obj.shapeType = newShape;
+                    resetSceneObjectLabel(obj, gSelectedObjIdx);
+                    rebuildSceneObjectShape(gSelectedObjIdx);
+                    pauseForSceneEditing();
+                }
+                {
+                    float bw = (ImGui::GetContentRegionAvail().x - 8.0f) / 3.0f;
+                    if (ActionButtonT("Make House", "家にする", ActionTone::Primary, ImVec2(bw, 30.f))) {
+                        obj.shapeType = 6;
+                        obj.matIdx = 5; // wood reads naturally for building shells
+                        obj.sx = 1.5f; obj.sy = 1.1f; obj.sz = 1.4f;
+                        resetSceneObjectLabel(obj, gSelectedObjIdx);
+                        rebuildSceneObjectShape(gSelectedObjIdx);
+                        pauseForSceneEditing();
+                    }
+                    ImGui::SameLine(0.0f, 4.0f);
+                    if (ActionButtonT("Make Tube", "筒にする", ActionTone::Neutral, ImVec2(bw, 30.f))) {
+                        obj.shapeType = 2;
+                        obj.sx = 0.55f; obj.sy = 2.2f; obj.sz = 0.55f;
+                        resetSceneObjectLabel(obj, gSelectedObjIdx);
+                        rebuildSceneObjectShape(gSelectedObjIdx);
+                        pauseForSceneEditing();
+                    }
+                    ImGui::SameLine(0.0f, 4.0f);
+                    if (ActionButtonT("Make Wall", "壁にする", ActionTone::Neutral, ImVec2(bw, 30.f))) {
+                        obj.shapeType = 1;
+                        obj.sx = 2.6f; obj.sy = 1.2f; obj.sz = 0.18f;
+                        resetSceneObjectLabel(obj, gSelectedObjIdx);
+                        rebuildSceneObjectShape(gSelectedObjIdx);
+                        pauseForSceneEditing();
+                    }
+                }
+
+                ImGui::Separator();
                 bool pc=false;
                 pc |= ControlSliderFloatT("Position X", "位置 X", "rpx",
                                           &obj.pos.x, -500.f, 500.f, "%.2f m");
@@ -4318,7 +4448,7 @@ void renderHUD() {
                                               true, 1.0f);
                 if (scChanged) {
                     obj.sx=nsx; obj.sy=nsy; obj.sz=nsz;
-                    if (obj.bshape) obj.bshape->setLocalScaling(btVector3(nsx,nsy,nsz));
+                    rebuildSceneObjectShape(gSelectedObjIdx);
                 }
                 float newR=obj.r;
                 if (ControlSliderFloatT("Radius", "半径", "rsr", &newR, 0.1f, 5.f, "%.3f m",
@@ -4711,6 +4841,7 @@ int main() {
     createConeMesh();
     createCapsuleMesh();
     createCarMesh();
+    createHouseMesh();
     buildBulletWorld();
     printHelp();
 

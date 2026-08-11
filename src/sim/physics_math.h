@@ -68,6 +68,7 @@ inline float shapeVolume(int shapeType, float r, float sx, float sy, float sz) {
                   return pi_val * rXZ*rXZ * ry                    // capsule: cylinder
                        + (4.0f/3.0f) * pi_val * rXZ*rXZ*rXZ; }   //        + sphere caps
         case 5: return 8.0f * rx * ry * rz;                       // car — box volume same as case 1
+        case 6: return 6.6f * rx * ry * rz;                       // house: box walls + gabled roof prism
         default: return (4.0f/3.0f) * pi_val * rx * ry * rz;
     }
 }
