@@ -3781,6 +3781,7 @@ void renderHUD() {
 
     // ── Panel state ───────────────────────────────────────────────────────────
     static bool  gPanelOpen    = true;
+    static bool  gPanelStateInitialized = false;
     static float gStoredPanelW = 445.f;   // preferred width on a normal desktop window
 
     // Clamp to the actual display width so the panel can never cover the
@@ -3791,18 +3792,32 @@ void renderHUD() {
     // is left alone (not overwritten with the clamped value) so the panel
     // returns to its full preferred width if the viewport widens again.
     ImVec2 dispForPanel = ImGui::GetIO().DisplaySize;
-    float panelW = std::min(gStoredPanelW, std::max(200.f, dispForPanel.x - 48.f));
+    const bool compactLayout = dispForPanel.x < 700.f;
+    if (!gPanelStateInitialized && dispForPanel.x > 0.f) {
+        // On a phone, start with the scene visible instead of covering it with
+        // a desktop inspector. The edge button keeps the controls one tap away.
+        // Only do this once so rotating the device does not discard user state.
+        gPanelOpen = !compactLayout;
+        gPanelStateInitialized = true;
+    }
+
+    const float panelInset = compactLayout ? 8.f : 12.f;
+    const float toggleSize = compactLayout ? 44.f : 26.f;
+    const float panelGap = 6.f;
+    const float reservedEdge = toggleSize + panelGap + panelInset * 2.f;
+    float panelW = std::min(gStoredPanelW,
+        std::max(220.f, dispForPanel.x - reservedEdge));
     gMainPanelOpenForInput = gPanelOpen;
-    gMainPanelX = 12.0f;
-    gMainPanelY = 12.0f;
+    gMainPanelX = panelInset;
+    gMainPanelY = panelInset;
     gMainPanelW = panelW;
-    gMainPanelH = std::max(0.0f, dispForPanel.y - 24.0f);
+    gMainPanelH = std::max(0.0f, dispForPanel.y - panelInset * 2.f);
 
     // ── Toggle button — floats at top-right outside the box ──────────────────
     {
-        constexpr float BZ = 26.f;
-        float bx = 12.f + (gPanelOpen ? panelW + 6.f : 0.f);
-        ImGui::SetNextWindowPos(ImVec2(bx, 12.f), ImGuiCond_Always);
+        const float BZ = toggleSize;
+        float bx = panelInset + (gPanelOpen ? panelW + panelGap : 0.f);
+        ImGui::SetNextWindowPos(ImVec2(bx, panelInset), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(BZ, BZ), ImGuiCond_Always);
         ImGui::SetNextWindowBgAlpha(0.f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,    ImVec2(0,0));
@@ -3840,8 +3855,8 @@ void renderHUD() {
     // also blocked panning to it even when the window height was otherwise
     // fine, e.g. on a short browser window).
     ImVec2 disp = dispForPanel;
-    ImGui::SetNextWindowPos(ImVec2(12.f, 12.f), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(panelW, disp.y - 24.f), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(panelInset, panelInset), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(panelW, disp.y - panelInset * 2.f), ImGuiCond_Always);
     ImGui::Begin("##mainpanel", nullptr,
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar |
         ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
